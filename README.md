@@ -1,32 +1,14 @@
-# home-assistant-openplantbook
+# OpenPlantbook integration from Home Assistant
 
----
-title: OpenPlantbook
-description: Instructions on how to setup OpenPlantbook with Home Assistant.
-ha_category:
-  - Environment
-ha_iot_class: Cloud Polling
-ha_release: 0.116
-ha_quality_scale: internal
-ha_codeowners:
-  - '@Olen'
-ha_domain: openplantbook
----
+This integration does not do much by itself.  What it does is create two service calls so Home Assistant can search and get data from the [OpenPlantbook API](https://open.plantbook.io/).
 
-The `openplantbook` component allows you to search and get data from the [OpenPlantbook API](https://open.plantbook.io/) 
+This is used as a base for the sister-integration https://github.com/Olen/homeassistant-plant which utilizes this API to add max/min values for such as moisture, temperature, condictivity etc. based on the plant speices.
+
 
 ## Configuration
 
 The integration is set up using the GUI.  You must have a valid `client_id` and `secret` from OpenPlantbook to set up the integration.
-
-{% configuration %}
-client_id:
-  type: string
-  description: The Client ID from https://open.plantbook.io/apikey/show/
-secret:
-  type: string
-  description: The Client Secret from https://open.plantbook.io/apikey/show/
-{% endconfiguration %}
+After creating an account at the OpenPlantbook, you can find your `client_id` and `secret` here: https://open.plantbook.io/apikey/show/
 
 
 ## Examples
@@ -35,19 +17,13 @@ Two service calls are added by this integration:
 
 `openplantbook.search` searches the API for plants matching a string. The search result is added to the entity `openplantbook.search_result` with the number of returned results as the `state` and a list of results in the state attributes.
 
-{% raw %}
-
 ```yaml
 service: openplantbook.search
 service_data:
   alias: Capsicum
 ```
 
-{% endraw %}
-
 The result can then be read back from the `openplantbook.search_result` once the search completes:
-
-{% raw %}
 
 ```jinja2
 Number of plants found: {{ states('openplantbook.search_result') }}
@@ -57,8 +33,6 @@ Number of plants found: {{ states('openplantbook.search_result') }}
 {%- endfor %}
 ```
 
-{% endraw %}
-
 Which would produce 
 
 Number of plants found: 40
@@ -66,12 +40,11 @@ Number of plants found: 40
   * capsicum baccatum -> Capsicum baccatum
   * capsicum bomba yellow red -> Capsicum Bomba yellow red
   * capsicum chinense -> Capsicum chinense
-
+(...)
 
 
 `openplantbook.get` gets detailed data for a single plant. The result is added to the entity `openplantbook.<species name>` with parameters for different max/min values set as attributes.
 
-{% raw %}
 
 ```yaml
 service: openplantbook.get
@@ -79,11 +52,7 @@ service_data:
   species: capsicum annuum
 ```
 
-{% endraw %}
-
 And the results can be found in `openplantbook.capsicum_annuum`:
-
-{% raw %}
 
 ```jinja2
 Details for plant {{ states('openplantbook.capsicum_annuum') }}
@@ -93,8 +62,6 @@ Details for plant {{ states('openplantbook.capsicum_annuum') }}
 * Image: {{ state_attr('openplantbook.capsicum_annuum', 'image_url') }}
 ```
 
-{% endraw %}
-
 Which gives
 
 Details for plant Capsicum annuum
@@ -103,4 +70,4 @@ Details for plant Capsicum annuum
 * Max temperature: 35
 * Image: https://.../capsicum%20annuum.jpg
 
-
+![Example](images/openplantbook.gif)
