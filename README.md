@@ -70,4 +70,8 @@ Details for plant Capsicum annuum
 * Max temperature: 35
 * Image: https://.../capsicum%20annuum.jpg
 
+### Quick UI example
+
+Just to show how the service calls can be utilized to search the OpenPlantbook API
+
 ![Example](images/openplantbook.gif)
