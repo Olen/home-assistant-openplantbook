@@ -1,8 +1,19 @@
-# OpenPlantbook integration from Home Assistant
+# OpenPlantbook integration for Home Assistant
 
 This integration does not do much by itself.  What it does is create two service calls so Home Assistant can search and get data from the [OpenPlantbook API](https://open.plantbook.io/).
 
 This is used as a base for the sister-integration https://github.com/Olen/homeassistant-plant which utilizes this API to add max/min values for such as moisture, temperature, condictivity etc. based on the plant speices.
+
+
+## Installation
+This can be installed manually or through HACS
+### Via HACS
+* Add this repo as a "Custom repository" with type "Integration"
+* Click "Install" in the new "OpenPlantbook" card in HACS
+* Restart Home Assistant
+### Manual Installation
+* Copy the `openplantbook` directory to your server's `<config>/custom_components` directory
+* Restart Home Assistant
 
 
 ## Configuration
