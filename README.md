@@ -9,10 +9,10 @@ This is used as a base for the sister-integration https://github.com/Olen/homeas
 This can be installed manually or through HACS
 ### Via HACS
 * Add this repo as a "Custom repository" with type "Integration"
-** Click HACS in your Home Assistnat
-** Click Integrations
-** Click the 3 dots in the top right corner and select "Custom Repositories"
-** Add the URL to this github repository and category "Integration"
+* * Click HACS in your Home Assistnat
+* * Click Integrations
+* * Click the 3 dots in the top right corner and select "Custom Repositories"
+* * Add the URL to this github repository and category "Integration"
 * Click "Install" in the new "OpenPlantbook" card in HACS
 * Restart Home Assistant
 ### Manual Installation
