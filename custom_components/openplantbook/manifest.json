@@ -9,7 +9,5 @@
   "zeroconf": [],
   "homekit": {},
   "dependencies": [],
-  "codeowners": [
-    "@Olen"
-  ]
+  "codeowners": ["@Olen"]
 }

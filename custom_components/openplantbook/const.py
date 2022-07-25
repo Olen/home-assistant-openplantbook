@@ -6,3 +6,16 @@ ATTR_SPECIES = "species"
 ATTR_API = "api"
 ATTR_HOURS = "hours"
 CACHE_TIME = 24
+
+OPB_ATTR_SEARCH = "search"
+OPB_ATTR_SEARCH_RESULT = "search_result"
+OPB_ATTR_RESULT = "result"
+OPB_ATTR_RESULTS = "results"
+OPB_ATTR_TIMESTAMP = "timestamp"
+
+OPB_SERVICE_SEARCH = "search"
+OPB_SERVICE_GET = "get"
+OPB_SERVICE_CLEAN_CACHE = "clean_cache"
+
+OPB_PID = "pid"
+OPB_DISPLAY_PID = "display_pid"

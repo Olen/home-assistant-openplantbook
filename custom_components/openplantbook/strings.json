@@ -5,7 +5,7 @@
       "user": {
         "data": {
           "client_id": "Client ID",
-          "secret": "Secret"
+          "client_secret": "Secret"
         },
         "description": "Log in to https://open.plantbook.io/apikey/show/ and get you API client id and secret."
       }
