@@ -4,6 +4,9 @@ search:
     alias:
       description: The string to search for
       example: Capsicum
+      required: true
+      selector:
+        text:
 
 get:
   description: Fetches data for a single species
@@ -11,3 +14,6 @@ get:
     species:
       description: The name of the species as written in "pid" in Openplantbook
       example: coleus 'marble'
+      required: true
+      selector:
+        text:

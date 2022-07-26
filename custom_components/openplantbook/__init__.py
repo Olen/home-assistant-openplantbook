@@ -73,7 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
                 wait = 0
                 while OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
-                    _LOGGER.debug("Waiting...")
+                    _LOGGER.debug("Waiting")
                     wait = wait + 1
                     if wait == 10:
                         _LOGGER.error("Giving up waiting for OpenPlantBook")
