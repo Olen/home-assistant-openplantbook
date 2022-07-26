@@ -97,7 +97,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 for var, val in plant_data.items():
                     attrs[var] = val
                 entity_id = async_generate_entity_id(
-                    f"{DOMAIN}.{plant_data[OPB_PID]}", current_ids={}
+                    f"{DOMAIN}.{{}}", plant_data[OPB_PID], current_ids={}
                 )
                 hass.states.async_set(entity_id, plant_data[OPB_DISPLAY_PID], attrs)
 
@@ -125,7 +125,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 ) + timedelta(hours=hours):
                     _LOGGER.debug("Removing %s from cache", species)
                     entity_id = async_generate_entity_id(
-                        f"{DOMAIN}.{value[OPB_PID]}", current_ids={}
+                        f"{DOMAIN}.{{}}", value[OPB_PID], current_ids={}
                     )
                     hass.states.async_remove(entity_id)
                     hass.data[DOMAIN][ATTR_SPECIES].pop(species)
