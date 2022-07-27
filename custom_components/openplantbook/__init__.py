@@ -51,6 +51,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         hass.data[DOMAIN][ATTR_SPECIES] = {}
 
     async def get_plant(call):
+        if DOMAIN not in hass.data:
+            return
         species = call.data.get(ATTR_SPECIES)
         if species:
             # Here we try to ensure that we only run one API request for each species
@@ -103,6 +105,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     async def search_plantbook(call):
         alias = call.data.get(ATTR_ALIAS)
+        if DOMAIN not in hass.data:
+            return
         if alias:
             _LOGGER.info("Searching for %s", alias)
             plant_data = await hass.data[DOMAIN][ATTR_API].search_plantbook(alias)
