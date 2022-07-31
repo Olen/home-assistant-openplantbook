@@ -3,7 +3,7 @@ import asyncio
 from datetime import datetime, timedelta
 import logging
 
-from pyopenplantbook import OpenPlantBookApi
+from pyopenplantbook import MissingClientIdOrSecret, OpenPlantBookApi
 import voluptuous as vol
 
 from homeassistant import exceptions
@@ -89,8 +89,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 # We already have the data we need, so let's just return
                 _LOGGER.debug("We already have cached data for %s", species)
                 return True
+            try:
+                plant_data = await hass.data[DOMAIN][ATTR_API].get_plantbook_data(
+                    species
+                )
+            except MissingClientIdOrSecret:
+                plant_data = None
+                _LOGGER.error(
+                    "Missing client ID or secret. Please set up the integration again."
+                )
 
-            plant_data = await hass.data[DOMAIN][ATTR_API].get_plantbook_data(species)
             if plant_data:
                 _LOGGER.debug("Got data for %s", species)
                 plant_data[OPB_ATTR_TIMESTAMP] = datetime.now().isoformat()
@@ -109,7 +117,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             return
         if alias:
             _LOGGER.info("Searching for %s", alias)
-            plant_data = await hass.data[DOMAIN][ATTR_API].search_plantbook(alias)
+            try:
+                plant_data = await hass.data[DOMAIN][ATTR_API].search_plantbook(alias)
+            except MissingClientIdOrSecret:
+                plant_data = None
+                _LOGGER.error(
+                    "Missing client ID or secret. Please set up the integration again."
+                )
+                return
             state = len(plant_data[OPB_ATTR_RESULTS])
             attrs = {}
             for plant in plant_data[OPB_ATTR_RESULTS]:
