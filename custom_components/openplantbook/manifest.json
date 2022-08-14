@@ -3,11 +3,9 @@
   "name": "OpenPlantbook",
   "version": "1.0.2",
   "config_flow": true,
-  "documentation": "https://www.home-assistant.io/integrations/openplantbook",
+  "iot_class": "cloud_polling",
+  "documentation": "https://github.com/Olen/home-assistant-openplantbook/",
+  "issue_tracker": "https://github.com/Olen/home-assistant-openplantbook/issues",
   "requirements": ["pyopenplantbook==0.0.4"],
-  "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
-  "dependencies": [],
   "codeowners": ["@Olen"]
 }
