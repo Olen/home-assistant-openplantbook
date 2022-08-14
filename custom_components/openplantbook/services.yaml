@@ -1,7 +1,9 @@
 search:
+  name: Search
   description: Searches Openplantbook for a plant
   fields:
     alias:
+      name: Search for
       description: The string to search for
       example: Capsicum
       required: true
@@ -9,11 +11,29 @@ search:
         text:
 
 get:
+  name: Get
   description: Fetches data for a single species
   fields:
     species:
-      description: The name of the species as written in "pid" in Openplantbook
+      name: Species
+      description: The name of the species exactly as written in "pid" or "scientific species" in Openplantbook
       example: coleus 'marble'
       required: true
       selector:
         text:
+
+clean_cache:
+  name: Clean Cache
+  description: Clean up the cached entries from Openplantbook
+  fields:
+    hours:
+      name: Hours
+      description: Minimum age of entries to clean from the cache. Default to 24 hours if not set
+      example: 6
+      required: false
+      selector:
+        number:
+          mode: box
+          unit_of_measurement: hours
+          min: 0
+          max: 24

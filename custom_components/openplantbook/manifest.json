@@ -1,7 +1,7 @@
 {
   "domain": "openplantbook",
-  "name": "OpenPlantBook",
-  "version": "1.0.1",
+  "name": "OpenPlantbook",
+  "version": "1.0.2",
   "config_flow": true,
   "documentation": "https://www.home-assistant.io/integrations/openplantbook",
   "requirements": ["pyopenplantbook==0.0.4"],
