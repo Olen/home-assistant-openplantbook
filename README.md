@@ -101,3 +101,8 @@ Details for plant Capsicum annuum
 Just to show how the service calls can be utilized to search the OpenPlantbook API
 
 ![Example](images/openplantbook.gif)
+
+
+<a href="https://www.buymeacoffee.com/olatho" target="_blank">
+<img src="https://user-images.githubusercontent.com/203184/184674974-db7b9e53-8c5a-40a0-bf71-c01311b36b0a.png" style="height: 50px !important;"> 
+</a>
