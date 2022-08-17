@@ -1,7 +1,7 @@
 {
   "domain": "openplantbook",
   "name": "OpenPlantbook",
-  "version": "1.0.3",
+  "version": "1.0.2",
   "config_flow": true,
   "iot_class": "cloud_polling",
   "documentation": "https://github.com/Olen/home-assistant-openplantbook/",
