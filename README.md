@@ -24,12 +24,29 @@ This can be installed manually or through HACS
 * Restart Home Assistant
 
 
-## Configuration
+## Set up
 
 The integration is set up using the GUI.  You must have a valid `client_id` and `secret` from OpenPlantbook to set up the integration.
 After creating an account at the OpenPlantbook, you can find your `client_id` and `secret` here: https://open.plantbook.io/apikey/show/
 
 Go to "Settings" -> "Integrations" in Home Assistant.  Click "Add integration" and find "OpenPlantbook" in the list.
+
+## Configuration
+
+>**Note**
+>
+> Coming soon!
+
+The integration can optionally be set to automatically download images from Openplantbook.  
+
+![image](https://user-images.githubusercontent.com/203184/185127026-aa447d8f-0212-4fa7-b83b-3e5c330a82cc.png)
+
+You need to specify an _existing path_ that the user you are running home assistant as has write access to.  If you specify a relative path (e.g. a path that does not start with a "/", it means a path below your "config" directory.  So "www/images/plants" will mean "/config/www/images/plants".
+
+If the path contains "www/" the image_url in plant attributes will also be replaced by a reference to /local/<path to image>.  So if the download path is set to "www/images/plants/", the "image_url" of the species will be replaced with "/local/images/plants/my plant species.jpg".
+
+Existing files will never be overwritten, and the path needs to exist before the integration is configured. 
+
 
 ## Examples
 
