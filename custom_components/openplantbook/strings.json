@@ -1,5 +1,5 @@
 {
-  "title": "OpenPlantBook",
+  "title": "OpenPlantbook",
   "config": {
     "step": {
       "user": {
@@ -17,6 +17,21 @@
     },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "description": "",
+        "data": {
+          "download_images": "Automatically download plant images",
+          "download_path": "Path to save images"
+        }
+      }
+    },
+    "error": {
+      "invalid_path": "Invalid download path"
     }
   }
 }

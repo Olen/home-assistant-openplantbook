@@ -2,7 +2,11 @@
 import asyncio
 from datetime import datetime, timedelta
 import logging
+import os
+import re
+import urllib.parse
 
+import async_timeout
 from pyopenplantbook import MissingClientIdOrSecret, OpenPlantBookApi
 import voluptuous as vol
 
@@ -10,15 +14,20 @@ from homeassistant import exceptions
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import async_generate_entity_id
+from homeassistant.util import raise_if_invalid_filename, slugify
 
 from .const import (
     ATTR_ALIAS,
     ATTR_API,
     ATTR_HOURS,
+    ATTR_IMAGE,
     ATTR_SPECIES,
     CACHE_TIME,
     DOMAIN,
+    FLOW_DOWNLOAD_IMAGES,
+    FLOW_DOWNLOAD_PATH,
     OPB_ATTR_RESULTS,
     OPB_ATTR_SEARCH_RESULT,
     OPB_ATTR_TIMESTAMP,
@@ -109,7 +118,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 entity_id = async_generate_entity_id(
                     f"{DOMAIN}.{{}}", plant_data[OPB_PID], current_ids={}
                 )
+                if entry.options.get(FLOW_DOWNLOAD_IMAGES) and plant_data.get(
+                    ATTR_IMAGE
+                ):
+                    filename = slugify(
+                        urllib.parse.unquote(os.path.basename(plant_data[ATTR_IMAGE])),
+                        separator=" ",
+                    ).replace(" jpg", ".jpg")
+                    raise_if_invalid_filename(filename)
+                    download_path = entry.options.get(FLOW_DOWNLOAD_PATH)
+                    if not os.path.isabs(download_path):
+                        download_path = hass.config.path(download_path)
+
+                    final_path = os.path.join(download_path, filename)
+                    if os.path.isfile(final_path):
+                        _LOGGER.warning("Filename %s already exists", final_path)
+                        downloaded_file = final_path
+                    else:
+                        downloaded_file = await async_download_image(
+                            plant_data.get(ATTR_IMAGE), final_path
+                        )
+                    if downloaded_file and "www/" in downloaded_file:
+                        attrs[ATTR_IMAGE] = re.sub(
+                            "^.*www/", "/local/", downloaded_file
+                        )
+
                 hass.states.async_set(entity_id, plant_data[OPB_DISPLAY_PID], attrs)
+
             else:
                 del hass.data[DOMAIN][ATTR_SPECIES][species]
 
@@ -150,6 +185,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     )
                     hass.states.async_remove(entity_id)
                     hass.data[DOMAIN][ATTR_SPECIES].pop(species)
+
+    async def async_download_image(url, download_to):
+        _LOGGER.debug(
+            "Going to download image %s to %s",
+            url,
+            download_to,
+        )
+        if os.path.isfile(download_to):
+            _LOGGER.warning(
+                "File %s already exists. Will not download again", download_to
+            )
+            return download_to
+        websession = async_get_clientsession(hass)
+
+        with async_timeout.timeout(10):
+            resp = await websession.get(url)
+            if resp.status != 200:
+                _LOGGER.warning(
+                    "Downloading '%s' failed, status_code=%d", url, resp.status
+                )
+                return False
+
+        data = await resp.read()
+        with open(download_to, "wb") as fil:
+            fil.write(data)
+
+        _LOGGER.debug("Downloading of %s done", url)
+        return download_to
 
     hass.services.async_register(DOMAIN, OPB_SERVICE_SEARCH, search_plantbook)
     hass.services.async_register(DOMAIN, OPB_SERVICE_GET, get_plant)
