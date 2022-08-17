@@ -41,9 +41,13 @@ The integration can optionally be set to automatically download images from Open
 
 ![image](https://user-images.githubusercontent.com/203184/185127026-aa447d8f-0212-4fa7-b83b-3e5c330a82cc.png)
 
+The default path to save the images is `/config/www/images/plants`, but it can be set to any directory you wish.
+
 You need to specify an _existing path_ that the user you are running home assistant as has write access to.  If you specify a relative path (e.g. a path that does not start with a "/", it means a path below your "config" directory.  So "www/images/plants" will mean "/config/www/images/plants".
 
-If the path contains "www/" the image_url in plant attributes will also be replaced by a reference to /local/<path to image>.  So if the download path is set to "www/images/plants/", the "image_url" of the species will be replaced with "/local/images/plants/my plant species.jpg".
+If the path contains **"www/"** the image_url in plant attributes will also be replaced by a reference to /local/<path to image>.  So if the download path is set to the default "/config/www/images/plants/", the "image_url" of the species will be replaced with "/local/images/plants/my plant species.jpg".
+
+If the path does _not_ contain **"www/"** the full link to the image in OpenPlantbook is kept as it is, but the image is still downloaded to the path you specify. 
 
 Existing files will never be overwritten, and the path needs to exist before the integration is configured. 
 
