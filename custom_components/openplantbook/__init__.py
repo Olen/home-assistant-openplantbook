@@ -110,6 +110,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     f"{DOMAIN}.{{}}", plant_data[OPB_PID], current_ids={}
                 )
                 hass.states.async_set(entity_id, plant_data[OPB_DISPLAY_PID], attrs)
+            else:
+                del hass.data[DOMAIN][ATTR_SPECIES][species]
 
     async def search_plantbook(call):
         alias = call.data.get(ATTR_ALIAS)
