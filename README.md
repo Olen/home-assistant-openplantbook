@@ -33,17 +33,13 @@ Go to "Settings" -> "Integrations" in Home Assistant.  Click "Add integration" a
 
 ## Configuration
 
->**Note**
->
-> Coming soon!
-
 The integration can optionally be set to automatically download images from Openplantbook.  
 
 ![image](https://user-images.githubusercontent.com/203184/185127026-aa447d8f-0212-4fa7-b83b-3e5c330a82cc.png)
 
 The default path to save the images is `/config/www/images/plants`, but it can be set to any directory you wish.
 
-You need to specify an _existing path_ that the user you are running home assistant as has write access to.  If you specify a relative path (e.g. a path that does not start with a "/", it means a path below your "config" directory.  So "www/images/plants" will mean "/config/www/images/plants".
+You need to specify an _existing path_ that the user you are running home assistant as has write access to.  If you specify a relative path (e.g. a path that does not start with a "/", it means a path below your "config" directory.  So "www/images/plants" will mean "&lt;home-assistant-install-directory&gt;/config/www/images/plants".
 
 If the path contains **"www/"** the image_url in plant attributes will also be replaced by a reference to /local/<path to image>.  So if the download path is set to the default "/config/www/images/plants/", the "image_url" of the species will be replaced with "/local/images/plants/my plant species.jpg".
 
@@ -123,6 +119,9 @@ Just to show how the service calls can be utilized to search the OpenPlantbook A
 
 ![Example](images/openplantbook.gif)
 
+**PS!**
+
+This UI is _not_ part of the integration. It is just an example of how to use the service calls.  
 
 <a href="https://www.buymeacoffee.com/olatho" target="_blank">
 <img src="https://user-images.githubusercontent.com/203184/184674974-db7b9e53-8c5a-40a0-bf71-c01311b36b0a.png" style="height: 50px !important;"> 
