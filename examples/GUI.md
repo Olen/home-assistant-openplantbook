@@ -2,6 +2,9 @@
 
 This is a very rough example on what I have set up to create the HA GUI.
 
+![Example](../images/openplantbook.gif)
+
+
 ## Helpers
 
 We need some helpers to save the search results and trigger the automatons
