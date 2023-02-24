@@ -1,11 +1,11 @@
 {
   "domain": "openplantbook",
   "name": "OpenPlantbook",
-  "version": "1.1.0",
+  "codeowners": ["@Olen"],
   "config_flow": true,
-  "iot_class": "cloud_polling",
   "documentation": "https://github.com/Olen/home-assistant-openplantbook/",
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Olen/home-assistant-openplantbook/issues",
   "requirements": ["pyopenplantbook==0.0.4"],
-  "codeowners": ["@Olen"]
+  "version": "1.1.0"
 }
