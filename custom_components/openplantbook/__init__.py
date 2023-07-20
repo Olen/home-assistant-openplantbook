@@ -71,7 +71,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             raise OpenPlantbookException("no data found for domain %s", DOMAIN)
         species = call.data.get(ATTR_SPECIES)
         if species is None:
-            raise OpenPlantbookException("invalid service call, required attribute %s missing", ATTR_SPECIES)
+            raise OpenPlantbookException(
+                "invalid service call, required attribute %s missing", ATTR_SPECIES
+            )
 
         # Here we try to ensure that we only run one API request for each species
         # The first process creates an empty dict, and access the API
@@ -103,9 +105,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     ATTR_IMAGE
                 ):
                     filename = slugify(
-                        urllib.parse.unquote(
-                            os.path.basename(plant_data[ATTR_IMAGE])
-                        ),
+                        urllib.parse.unquote(os.path.basename(plant_data[ATTR_IMAGE])),
                         separator=" ",
                     ).replace(" jpg", ".jpg")
                     raise_if_invalid_filename(filename)
@@ -160,14 +160,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             return hass.data[DOMAIN][ATTR_SPECIES][species]
         else:
             del hass.data[DOMAIN][ATTR_SPECIES][species]
-            raise OpenPlantbookException("an unknown error occured while fetching data for species %s", species)
+            raise OpenPlantbookException(
+                "an unknown error occured while fetching data for species %s", species
+            )
 
     async def search_plantbook(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
             raise OpenPlantbookException("no data found for domain %s", DOMAIN)
         alias = call.data.get(ATTR_ALIAS)
         if alias is None:
-            raise OpenPlantbookException("invalid service call, required attribute %s missing", alias)
+            raise OpenPlantbookException(
+                "invalid service call, required attribute %s missing", alias
+            )
 
         _LOGGER.info("Searching for %s", alias)
         try:
