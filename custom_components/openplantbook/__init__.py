@@ -148,7 +148,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 wait = wait + 1
                 if wait == 10:
                     _LOGGER.error("Giving up waiting for OpenPlantBook")
-                    raise OpenPlantbookException("another request is still in progress, but timed out")
+                    raise OpenPlantbookException(
+                        "another request is still in progress, but timed out"
+                    )
                 await asyncio.sleep(1)
             _LOGGER.debug("The other process completed successfully")
             return hass.data[DOMAIN][ATTR_SPECIES][species]
