@@ -1,0 +1,2 @@
+class OpenPlantbookException(Exception):
+    pass

@@ -13,7 +13,12 @@ import voluptuous as vol
 from homeassistant import exceptions
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
-from homeassistant.core import HomeAssistant
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+)
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.util import raise_if_invalid_filename, slugify
@@ -37,6 +42,7 @@ from .const import (
     OPB_SERVICE_GET,
     OPB_SERVICE_SEARCH,
 )
+from .plantbook_exception import OpenPlantbookException
 
 CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 _LOGGER = logging.getLogger(__name__)
@@ -59,45 +65,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     if ATTR_SPECIES not in hass.data[DOMAIN]:
         hass.data[DOMAIN][ATTR_SPECIES] = {}
 
-    async def get_plant(call):
+    async def get_plant(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
-            return
+            _LOGGER.error("no data found for domain %s", DOMAIN)
+            raise OpenPlantbookException("no data found for domain %s", DOMAIN)
         species = call.data.get(ATTR_SPECIES)
-        if species:
-            # Here we try to ensure that we only run one API request for each species
-            # The first process creates an empty dict, and access the API
-            # Later requests for the same species either wait for the first one to complete
-            # or they returns immediately if we already have the data we need
-            _LOGGER.debug("get_plant %s", species)
-            if species not in hass.data[DOMAIN][ATTR_SPECIES]:
-                _LOGGER.debug("I am the first process to get %s", species)
-                hass.data[DOMAIN][ATTR_SPECIES][species] = {}
-            elif OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
-                # If more than one "get_plant" is triggered for the same species, we wait for up to
-                # 10 seconds for the first process to complete the API request.
-                # We don't want to return immediately, as we want the state object to be set by
-                # the running process before we return from this call
-                _LOGGER.debug(
-                    "Another process is currently trying to get the data for %s",
-                    species,
-                )
+        if species is None:
+            raise OpenPlantbookException(
+                "invalid service call, required attribute %s missing", ATTR_SPECIES
+            )
 
-                wait = 0
-                while OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
-                    _LOGGER.debug("Waiting")
-                    wait = wait + 1
-                    if wait == 10:
-                        _LOGGER.error("Giving up waiting for OpenPlantBook")
-                        return False
-                    await asyncio.sleep(1)
-                _LOGGER.debug("The other process completed successfully")
-                return True
-            elif datetime.now() < datetime.fromisoformat(
-                hass.data[DOMAIN][ATTR_SPECIES][species][OPB_ATTR_TIMESTAMP]
-            ) + timedelta(hours=CACHE_TIME):
-                # We already have the data we need, so let's just return
-                _LOGGER.debug("We already have cached data for %s", species)
-                return True
+        # Here we try to ensure that we only run one API request for each species
+        # The first process creates an empty dict, and access the API
+        # Later requests for the same species either wait for the first one to complete
+        # or they returns immediately if we already have the data we need
+        _LOGGER.debug("get_plant %s", species)
+        if species not in hass.data[DOMAIN][ATTR_SPECIES]:
+            _LOGGER.debug("I am the first process to get %s", species)
+            hass.data[DOMAIN][ATTR_SPECIES][species] = {}
             try:
                 plant_data = await hass.data[DOMAIN][ATTR_API].get_plantbook_data(
                     species
@@ -107,14 +92,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 _LOGGER.error(
                     "Missing client ID or secret. Please set up the integration again"
                 )
+                raise
 
             if plant_data:
                 _LOGGER.debug("Got data for %s", species)
                 plant_data[OPB_ATTR_TIMESTAMP] = datetime.now().isoformat()
                 hass.data[DOMAIN][ATTR_SPECIES][species] = plant_data
-                attrs = {}
-                for var, val in plant_data.items():
-                    attrs[var] = val
                 entity_id = async_generate_entity_id(
                     f"{DOMAIN}.{{}}", plant_data[OPB_PID], current_ids={}
                 )
@@ -139,37 +122,77 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                             plant_data.get(ATTR_IMAGE), final_path
                         )
                     if downloaded_file and "www/" in downloaded_file:
-                        attrs[ATTR_IMAGE] = re.sub(
+                        plant_data[ATTR_IMAGE] = re.sub(
                             "^.*www/", "/local/", downloaded_file
                         )
 
-                hass.states.async_set(entity_id, plant_data[OPB_DISPLAY_PID], attrs)
-
-            else:
-                del hass.data[DOMAIN][ATTR_SPECIES][species]
-
-    async def search_plantbook(call):
-        alias = call.data.get(ATTR_ALIAS)
-        if DOMAIN not in hass.data:
-            return
-        if alias:
-            _LOGGER.info("Searching for %s", alias)
-            try:
-                plant_data = await hass.data[DOMAIN][ATTR_API].search_plantbook(alias)
-            except MissingClientIdOrSecret:
-                plant_data = None
-                _LOGGER.error(
-                    "Missing client ID or secret. Please set up the integration again"
+                _LOGGER.debug("data stored for %s: %s", species, plant_data)
+                hass.states.async_set(
+                    entity_id, plant_data[OPB_DISPLAY_PID], plant_data
                 )
-                return
-            state = len(plant_data[OPB_ATTR_RESULTS])
-            attrs = {}
-            for plant in plant_data[OPB_ATTR_RESULTS]:
-                pid = plant[OPB_PID]
-                attrs[pid] = plant[OPB_DISPLAY_PID]
-            hass.states.async_set(f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}", state, attrs)
+                return plant_data
+            return {}
+        elif OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
+            # If more than one "get_plant" is triggered for the same species, we wait for up to
+            # 10 seconds for the first process to complete the API request.
+            # We don't want to return immediately, as we want the state object to be set by
+            # the running process before we return from this call
+            _LOGGER.debug(
+                "Another process is currently trying to get the data for %s",
+                species,
+            )
 
-    async def clean_cache(call):
+            wait = 0
+            while OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
+                _LOGGER.debug("Waiting")
+                wait = wait + 1
+                if wait == 10:
+                    _LOGGER.error("Giving up waiting for OpenPlantBook")
+                    raise OpenPlantbookException(
+                        "another request is still in progress, but timed out"
+                    )
+                await asyncio.sleep(1)
+            _LOGGER.debug("The other process completed successfully")
+            return hass.data[DOMAIN][ATTR_SPECIES][species]
+        elif datetime.now() < datetime.fromisoformat(
+            hass.data[DOMAIN][ATTR_SPECIES][species][OPB_ATTR_TIMESTAMP]
+        ) + timedelta(hours=CACHE_TIME):
+            # We already have the data we need, so let's just return
+            _LOGGER.debug("We already have cached data for %s", species)
+            return hass.data[DOMAIN][ATTR_SPECIES][species]
+        else:
+            del hass.data[DOMAIN][ATTR_SPECIES][species]
+            raise OpenPlantbookException(
+                "an unknown error occured while fetching data for species %s", species
+            )
+
+    async def search_plantbook(call: ServiceCall) -> ServiceResponse:
+        if DOMAIN not in hass.data:
+            raise OpenPlantbookException("no data found for domain %s", DOMAIN)
+        alias = call.data.get(ATTR_ALIAS)
+        if alias is None:
+            raise OpenPlantbookException(
+                "invalid service call, required attribute %s missing", alias
+            )
+
+        _LOGGER.info("Searching for %s", alias)
+        try:
+            plant_data = await hass.data[DOMAIN][ATTR_API].search_plantbook(alias)
+        except MissingClientIdOrSecret:
+            _LOGGER.error(
+                "Missing client ID or secret. Please set up the integration again"
+            )
+            raise
+        state = len(plant_data[OPB_ATTR_RESULTS])
+        attrs = {}
+        for plant in plant_data[OPB_ATTR_RESULTS]:
+            pid = plant[OPB_PID]
+            attrs[pid] = plant[OPB_DISPLAY_PID]
+        hass.states.async_set(f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}", state, attrs)
+
+        return attrs
+
+    async def clean_cache(call: ServiceCall) -> None:
         hours = call.data.get(ATTR_HOURS)
         if hours is None or not isinstance(hours, int):
             hours = CACHE_TIME
@@ -214,9 +237,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.debug("Downloading of %s done", url)
         return download_to
 
-    hass.services.async_register(DOMAIN, OPB_SERVICE_SEARCH, search_plantbook)
-    hass.services.async_register(DOMAIN, OPB_SERVICE_GET, get_plant)
-    hass.services.async_register(DOMAIN, OPB_SERVICE_CLEAN_CACHE, clean_cache)
+    hass.services.async_register(
+        DOMAIN, OPB_SERVICE_SEARCH, search_plantbook, None, SupportsResponse.OPTIONAL
+    )
+    hass.services.async_register(
+        DOMAIN, OPB_SERVICE_GET, get_plant, None, SupportsResponse.OPTIONAL
+    )
+    hass.services.async_register(
+        DOMAIN, OPB_SERVICE_CLEAN_CACHE, clean_cache, None, SupportsResponse.NONE
+    )
     hass.states.async_set(f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}", 0)
 
     return True
