@@ -7,5 +7,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Olen/home-assistant-openplantbook/issues",
   "requirements": ["pyopenplantbook==0.0.4"],
-  "version": "1.1.0"
+  "version": "1.2.0b1"
 }
