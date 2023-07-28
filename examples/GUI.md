@@ -84,7 +84,7 @@ Clear the cache when the button is pressed
 
 ```
 
-alias: Clear OPB cache
+alias: Clear Openplantbook cache
 trigger:
   - platform: state
     entity_id:
@@ -108,7 +108,7 @@ entities:
   - entity: input_text.openplantbook_search
   - entity: openplantbook.search_result
   - entity: input_select.openplantbook_searchresults
-  - entity: input_button.clear_cache
+  - entity: input_button.openplantbook_clear_cache
 ```
 
 ```
