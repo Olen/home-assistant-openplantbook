@@ -30,7 +30,7 @@ openplantbook_clear_cache:
 
 ## Automations
 
-These automations triggers when the different helpers are modified.
+These automations trigger when the different helpers are modified.
 
 Initiate a search when the input_text helper is modified
 
@@ -88,7 +88,7 @@ alias: Clear Openplantbook cache
 trigger:
   - platform: state
     entity_id:
-      - input_button.clear_openplantbook_cache
+      - input_button.openplantbook_clear_cache
 action:
   - service: openplantbook.clean_cache
     data:
