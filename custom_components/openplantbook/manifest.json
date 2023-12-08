@@ -6,6 +6,6 @@
   "documentation": "https://github.com/Olen/home-assistant-openplantbook/",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Olen/home-assistant-openplantbook/issues",
-  "requirements": ["pyopenplantbook==0.0.4"],
-  "version": "1.2.0"
+  "requirements": ["openplantbook-sdk==0.4.3","json-timeseries"],
+  "version": "1.3.0"
 }

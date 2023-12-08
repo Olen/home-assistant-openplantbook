@@ -22,6 +22,18 @@ get:
       selector:
         text:
 
+upload:
+  name: Upload
+  description: Upload sensors data of all plant instances
+#  fields:
+#    plant_instance:
+#      name: Plant Instance
+#      description: Plant instance name as in Plant Monitor
+#      example: Acer on balcony
+#      required: true
+#      selector:
+#        text:
+
 clean_cache:
   name: Clean Cache
   description: Clean up the cached entries from Openplantbook

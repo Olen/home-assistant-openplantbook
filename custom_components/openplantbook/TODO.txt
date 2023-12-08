@@ -1,0 +1,7 @@
+# TODO 2: Update docs with Uploader description
+# TODO 4: OptionsFlow make separate step for uploader. Do I need this?
+# TODO 4: Check what happens if history is disabled
+# TODO 4: Notify existing installations "please consider enabling sensor sharing" OR Prompt for sensor sharing on new installations
+# TODO 3: UI option to disable location detection
+# TODO X: Output states range of data after query
+# TODO 4: Create service to upload plants data for last x days

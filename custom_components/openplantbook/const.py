@@ -2,6 +2,7 @@
 DOMAIN = "openplantbook"
 PLANTBOOK_BASEURL = "https://open.plantbook.io/api/v1"
 ATTR_ALIAS = "alias"
+ATTR_PLANT_INSTANCE = "plant_instance"
 ATTR_SPECIES = "species"
 ATTR_API = "api"
 ATTR_HOURS = "hours"
@@ -16,6 +17,7 @@ OPB_ATTR_TIMESTAMP = "timestamp"
 
 OPB_SERVICE_SEARCH = "search"
 OPB_SERVICE_GET = "get"
+OPB_SERVICE_UPLOAD = "upload"
 OPB_SERVICE_CLEAN_CACHE = "clean_cache"
 
 OPB_PID = "pid"
@@ -24,3 +26,8 @@ OPB_DISPLAY_PID = "display_pid"
 FLOW_DOWNLOAD_IMAGES = "download_images"
 FLOW_DOWNLOAD_PATH = "download_path"
 DEFAULT_IMAGE_PATH = "/config/www/images/plants/"
+
+OPB_MEASUREMENTS_TO_UPLOAD = ['moisture','illuminance','conductivity','temperature','humidity']
+FLOW_UPLOAD_DATA = 'upload_data'
+FLOW_UPLOAD_HASS_LOCATION = 'upload_data_hass_location'
+
