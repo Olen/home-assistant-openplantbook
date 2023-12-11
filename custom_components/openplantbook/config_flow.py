@@ -44,7 +44,8 @@ async def validate_input(hass: core.HomeAssistant, data):
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
             data[CONF_CLIENT_ID], data[CONF_CLIENT_SECRET], base_url='https://opb-dev.plantbook.io/api/v1'
         )
-        res = await hass.data[DOMAIN][ATTR_API]._get_token()
+        res = await hass.data[DOMAIN][ATTR_API]._async_get_token()
+        # TODO V: Verify connection to OPB here to check credentials are valid
         # TODO 4: Error messages for "unable to connect" and "creds are not valid" not working well.
     except PermissionError as ex:
         raise ValueError

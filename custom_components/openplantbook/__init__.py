@@ -94,7 +94,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             _LOGGER.debug("I am the first process to get %s", species)
             hass.data[DOMAIN][ATTR_SPECIES][species] = {}
             try:
-                plant_data = await hass.data[DOMAIN][ATTR_API].plant_detail_get(
+                plant_data = await hass.data[DOMAIN][ATTR_API].async_plant_detail_get(
                     species
                 )
             except MissingClientIdOrSecret:
@@ -187,7 +187,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
         _LOGGER.info("Searching for %s", alias)
         try:
-            plant_data = await hass.data[DOMAIN][ATTR_API].plant_search(alias)
+            plant_data = await hass.data[DOMAIN][ATTR_API].async_plant_search(alias)
         except MissingClientIdOrSecret:
             _LOGGER.error(
                 "Missing client ID or secret. Please set up the integration again"

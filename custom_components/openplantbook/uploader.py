@@ -96,7 +96,7 @@ async def plant_data_upload(hass, call=None) -> dict[str, Any] | None:
         reg_map = {plant_instance_id: opb_pid}
         _LOGGER.debug("Registering Plant-instance: %s" % str(reg_map))
         try:
-            res = await hass.data[DOMAIN][ATTR_API].plant_instance_register(sensor_pid_map=reg_map)
+            res = await hass.data[DOMAIN][ATTR_API].async_plant_instance_register(sensor_pid_map=reg_map)
         except Exception as ex:
             _LOGGER.error("Unable to register Plant-instance: %s" % str(reg_map))
             continue
@@ -173,7 +173,7 @@ async def plant_data_upload(hass, call=None) -> dict[str, Any] | None:
 
     if len(jts_doc) > 0:
         _LOGGER.debug("An upload payload: %s" % jts_doc.toJSONString())
-        res = await hass.data[DOMAIN][ATTR_API].plant_data_upload(jts_doc, dry_run=False)
+        res = await hass.data[DOMAIN][ATTR_API].async_plant_data_upload(jts_doc, dry_run=False)
         _LOGGER.info("Uploading data from %s sensors was %s" % (len(jts_doc), "successful" if res else "failure"))
         return {'result': res}
     else:
@@ -224,7 +224,7 @@ async def plant_data_upload(hass, call=None) -> dict[str, Any] | None:
     #
     # _LOGGER.info("Searching for %s", alias)
     # try:
-    #     plant_data = await hass.data[DOMAIN][ATTR_API].plant_search(alias)
+    #     plant_data = await hass.data[DOMAIN][ATTR_API].async_plant_search(alias)
     # except MissingClientIdOrSecret:
     #     _LOGGER.error(
     #         "Missing client ID or secret. Please set up the integration again"

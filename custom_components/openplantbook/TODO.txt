@@ -1,7 +1,17 @@
+
 # TODO 2: Update docs with Uploader description
-# TODO 4: OptionsFlow make separate step for uploader. Do I need this?
-# TODO 4: Check what happens if history is disabled
-# TODO 4: Notify existing installations "please consider enabling sensor sharing" OR Prompt for sensor sharing on new installations
 # TODO 3: UI option to disable location detection
-# TODO X: Output states range of data after query
+# TODO 4: Check what happens if history is disabled
 # TODO 4: Create service to upload plants data for last x days
+# TODO 4: Notify existing installations "please consider enabling sensor sharing" OR Prompt for sensor sharing on new installations
+# TODO 4: OptionsFlow make separate step for uploader. Do I need this?
+# TODO V: Adjust schedule (1st upload in 5 minutes after start of HASS and in 1 day)
+# TODO V: Check and handle is required range is outside available states (e.g. more than 1 day)
+# TODO V: Handle initial value of Upload for existing (False) and new installations (True)
+# TODO V: Handle potential errors from SDK and OPB
+# TODO V: Limit required range: if OPB last_data is too far in the past e.g. more than a day
+# TODO V: See if I can optimize a code and move data_uploader to the separate class (use Broadlink component as example)
+# TODO V: Simplify schedule setup and correct func names
+# TODO V: UI option to enable sensor data sharing
+# TODO V: deactivate times for upload when uninstall the component
+# TODO X: Output states range of data after query
