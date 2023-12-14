@@ -130,9 +130,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         download_images = self.entry.options.get(FLOW_DOWNLOAD_IMAGES, False)
         download_path = self.entry.options.get(FLOW_DOWNLOAD_PATH, DEFAULT_IMAGE_PATH)
         # Uploader settings
-        upload_sensors = self.entry.options.get(FLOW_UPLOAD_DATA)
-        location_country = self.entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY)
-        location_coordinates = self.entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COORD)
+        upload_sensors = self.entry.options.get(FLOW_UPLOAD_DATA, False)
+        location_country = self.entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY, False)
+        location_coordinates = self.entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COORD, False)
 
         if user_input is not None:
             _LOGGER.debug("User: %s", user_input)
