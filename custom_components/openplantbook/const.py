@@ -29,5 +29,5 @@ DEFAULT_IMAGE_PATH = "/config/www/images/plants/"
 
 OPB_MEASUREMENTS_TO_UPLOAD = ['moisture','illuminance','conductivity','temperature','humidity']
 FLOW_UPLOAD_DATA = 'upload_data'
-FLOW_UPLOAD_HASS_LOCATION = 'upload_data_hass_location'
-
+FLOW_UPLOAD_HASS_LOCATION_COUNTRY = 'upload_data_hass_location_country'
+FLOW_UPLOAD_HASS_LOCATION_COORD = 'upload_data_hass_location_coordinates'

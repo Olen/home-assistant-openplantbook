@@ -299,7 +299,7 @@ async def config_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
     """Handle component's options update"""
     # await hass.config_entries.async_reload(entry.entry_id)
 
-    _LOGGER.debug("Options update: %s, %s, %s", entry.entry_id, entry.data, entry.options)
+    _LOGGER.debug("Options update: %s, %s", entry.entry_id, entry.options)
     await async_setup_upload_schedule(hass, entry)
 
 

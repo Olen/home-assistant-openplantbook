@@ -20,7 +20,7 @@ from .const import (
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
-    FLOW_UPLOAD_DATA, FLOW_UPLOAD_HASS_LOCATION,
+    FLOW_UPLOAD_DATA, FLOW_UPLOAD_HASS_LOCATION_COUNTRY, FLOW_UPLOAD_HASS_LOCATION_COORD,
 )
 
 TITLE = "title"
@@ -28,7 +28,7 @@ TITLE = "title"
 _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = vol.Schema({CONF_CLIENT_ID: str, CONF_CLIENT_SECRET: str})
-UPLOAD_SCHEMA = vol.Schema({FLOW_UPLOAD_DATA: bool, FLOW_UPLOAD_HASS_LOCATION: bool})
+UPLOAD_SCHEMA = vol.Schema({FLOW_UPLOAD_DATA: bool, FLOW_UPLOAD_HASS_LOCATION_COUNTRY: bool, FLOW_UPLOAD_HASS_LOCATION_COORD: bool})
 
 
 async def validate_input(hass: core.HomeAssistant, data):
@@ -96,11 +96,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
     async def async_step_upload(self, user_input=None):
-        """Handle the upload step."""
+        """
+        Handle the upload step.
+        Store it as ConfigEntry Options
+        """
         errors = {}
         if user_input is not None:
-                self.data.update(user_input)
-                return self.async_create_entry(title="Openplantbook API", data=self.data)
+                # self.options=user_input
+                return self.async_create_entry(title="Openplantbook API", data=self.data, options=user_input)
 
         return self.async_show_form(
             step_id="upload", data_schema=UPLOAD_SCHEMA, errors=errors
@@ -128,11 +131,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         download_path = self.entry.options.get(FLOW_DOWNLOAD_PATH, DEFAULT_IMAGE_PATH)
         # Uploader settings
         upload_sensors = self.entry.options.get(FLOW_UPLOAD_DATA)
-        upload_hass_location = self.entry.options.get(FLOW_UPLOAD_HASS_LOCATION)
-        if upload_sensors is None:
-            upload_sensors = self.entry.data.get(FLOW_UPLOAD_DATA, False)
-        if upload_hass_location is None:
-            upload_hass_location = self.entry.data.get(FLOW_UPLOAD_HASS_LOCATION, False)
+        location_country = self.entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY)
+        location_coordinates = self.entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COORD)
 
         if user_input is not None:
             _LOGGER.debug("User: %s", user_input)
@@ -142,17 +142,18 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             download_images = user_input.get(FLOW_DOWNLOAD_IMAGES)
             download_path = user_input.get(FLOW_DOWNLOAD_PATH)
             upload_sensors = user_input.get(FLOW_UPLOAD_DATA)
-            upload_hass_location = user_input.get(FLOW_UPLOAD_HASS_LOCATION)
+            location_country = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY)
+            location_coordinates = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COORD)
 
         _LOGGER.debug(
-            "Init: %s, %s, %s", self.entry.entry_id, self.entry.data, self.entry.options
+            "Init: %s, %s", self.entry.entry_id, self.entry.options
         )
 
-        data_schema = {}
-        data_schema[vol.Optional(FLOW_UPLOAD_DATA, default=upload_sensors)] = cv.boolean
-        data_schema[vol.Optional(FLOW_UPLOAD_HASS_LOCATION, default=upload_hass_location)] = cv.boolean
-        data_schema[vol.Optional(FLOW_DOWNLOAD_IMAGES, default=download_images)] = cv.boolean
-        data_schema[vol.Optional(FLOW_DOWNLOAD_PATH, default=download_path)] = cv.string
+        data_schema = {vol.Optional(FLOW_UPLOAD_DATA, default=upload_sensors): cv.boolean,
+                       vol.Optional(FLOW_UPLOAD_HASS_LOCATION_COUNTRY, default=location_country): cv.boolean,
+                       vol.Optional(FLOW_UPLOAD_HASS_LOCATION_COORD, default=location_coordinates): cv.boolean,
+                       vol.Optional(FLOW_DOWNLOAD_IMAGES, default=download_images): cv.boolean,
+                       vol.Optional(FLOW_DOWNLOAD_PATH, default=download_path): cv.string}
 
         return self.async_show_form(
             step_id="init", data_schema=vol.Schema(data_schema), errors=self.errors

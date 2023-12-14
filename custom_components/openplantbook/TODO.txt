@@ -1,6 +1,12 @@
 
 # TODO 2: Update docs with Uploader description
 # TODO 3: UI option to disable location detection
+# TODO 2: If data in payload < latest_data then "Nothing to upload"
+
+# TODO 2: If latest_data = None and no data from sensors in HASS. HASS "sig. states" still return the last known value on the date of query. It should return NONE. Investigate if other methods can do it.
+# TODO 3: Add history and recorder in manifest.yaml
+# TODO V: UI option to configure location sharing
+# TODO V: Support HASS location sharing
 # TODO 4: Check what happens if history is disabled
 # TODO 4: Create service to upload plants data for last x days
 # TODO 4: Notify existing installations "please consider enabling sensor sharing" OR Prompt for sensor sharing on new installations

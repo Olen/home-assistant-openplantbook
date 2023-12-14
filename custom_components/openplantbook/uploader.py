@@ -18,25 +18,36 @@ from homeassistant.helpers import device_registry
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.event import async_track_time_interval, async_call_later
 from .plantbook_exception import OpenPlantbookException
-from .const import DOMAIN, OPB_MEASUREMENTS_TO_UPLOAD, ATTR_API, FLOW_UPLOAD_DATA
+from .const import DOMAIN, OPB_MEASUREMENTS_TO_UPLOAD, ATTR_API, FLOW_UPLOAD_DATA, FLOW_UPLOAD_HASS_LOCATION_COUNTRY, \
+    FLOW_UPLOAD_HASS_LOCATION_COORD
 import logging
 
-UPLOAD_TIME_INTERVAL = timedelta(minutes=3)
-UPLOAD_WAIT_AFTER_RESTART = timedelta(minutes=1)
+UPLOAD_TIME_INTERVAL = timedelta(minutes=30)
+UPLOAD_WAIT_AFTER_RESTART = timedelta(minutes=5)
 
 _LOGGER = logging.getLogger(__name__)
 
-async def plant_data_upload(hass, call=None) -> dict[str, Any] | None:
+
+async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
     if DOMAIN not in hass.data:
         raise OpenPlantbookException("no data found for domain %s", DOMAIN)
     # _device_id = call.data.get(ATTR_PLANT_INSTANCE)
 
     if call:
-        _LOGGER.info("Upload data service is triggered")
+        _LOGGER.info("Plant-sensors data upload service is triggered")
 
     # def device_entities(hass: HomeAssistant, _device_id: str) -> Iterable[str]:
 
     _LOGGER.debug("Querying Plants' sensors data for upload")
+
+    # Get location data as per selected Options
+    location = {}
+    if entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY):
+        location["country"] = hass.config.country
+
+    if entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COORD):
+        location["lon"] = hass.config.longitude
+        location["lat"] = hass.config.latitude
 
     # Get entity ids for plant devices.
     device_reg = device_registry.async_get(hass)
@@ -44,6 +55,7 @@ async def plant_data_upload(hass, call=None) -> dict[str, Any] | None:
     # devices = device_registry.async_get_device(hass)
 
     plant_devices = []
+    # Looking for Plant-component's devices
     for i, d in device_reg.devices.data.items():
         if 'plant' in str(d.identifiers) and d.name_by_user is None:
             plant_devices.append(d)
@@ -96,9 +108,13 @@ async def plant_data_upload(hass, call=None) -> dict[str, Any] | None:
         reg_map = {plant_instance_id: opb_pid}
         _LOGGER.debug("Registering Plant-instance: %s" % str(reg_map))
         try:
-            res = await hass.data[DOMAIN][ATTR_API].async_plant_instance_register(sensor_pid_map=reg_map)
+            res = await hass.data[DOMAIN][ATTR_API].async_plant_instance_register(sensor_pid_map=reg_map,
+                                                                                  location_country=location.get(
+                                                                                      'country'),
+                                                                                  location_lon=location.get('lon'),
+                                                                                  location_lat=location.get('lat'))
         except Exception as ex:
-            _LOGGER.error("Unable to register Plant-instance: %s" % str(reg_map))
+            _LOGGER.error("Unable to register Plant-instance: %s due to Exception: %s" % (str(reg_map), ex))
             continue
 
         _LOGGER.debug("Registration response: %s" % str(res))
@@ -125,7 +141,8 @@ async def plant_data_upload(hass, call=None) -> dict[str, Any] | None:
             # First time upload for the sensor as no latest_data in the response. Taking only last day of data
             query_period_start_timestamp = query_period_end_timestamp - timedelta(days=1)
 
-        _LOGGER.debug("Querying plant-sensors data from %s to %s" % (dt_util.as_local(query_period_start_timestamp), dt_util.as_local(query_period_end_timestamp)))
+        _LOGGER.debug("Querying plant-sensors data from %s to %s" % (
+        dt_util.as_local(query_period_start_timestamp), dt_util.as_local(query_period_end_timestamp)))
 
         # Create time_series for each measurement of the same "plant_id"
         measurements = {
@@ -237,6 +254,7 @@ async def plant_data_upload(hass, call=None) -> dict[str, Any] | None:
     #     attrs[pid] = plant[OPB_DISPLAY_PID]
     # hass.states.async_set(f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}", state, attrs)
 
+
 async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Set up the time sync."""
     # TODO V: Check if sensor upload is enabled
@@ -246,12 +264,10 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
     async def upload_data(now: datetime) -> None:
         # now = dt_util.as_local(now)
         _LOGGER.info("Plant-sensors data upload initiated")
-        await plant_data_upload(hass)
+        await plant_data_upload(hass, entry)
 
     # Check if upload is enabled via OptionFlow
     upload_sensors = entry.options.get(FLOW_UPLOAD_DATA)
-    if upload_sensors is None: # Check if upload is enabled via an initial ConfigFlow otherwise disable
-        upload_sensors = entry.data.get(FLOW_UPLOAD_DATA, False)
 
     if upload_sensors:
 
@@ -294,7 +310,6 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
         if hass.data[DOMAIN].get('remove_upload_listener'):
             hass.data[DOMAIN]['remove_upload_listener']()
             hass.data[DOMAIN]['remove_upload_listener'] = None
-            hass.data[DOMAIN]['remove_upload_listener'] = None
 
 # class Plant_data_uploader:
 #
@@ -316,6 +331,3 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
 #         if self._unsubscribe is not None:
 #             self._unsubscribe()
 #             self._unsubscribe = None
-
-
-
