@@ -203,7 +203,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         return attrs
 
     async def plant_data_upload_service(call: ServiceCall) -> ServiceResponse:
-        return {'result': await plant_data_upload(hass, call=call)}
+        return {'result': await plant_data_upload(hass, entry=entry, call=call)}
 
     async def clean_cache(call: ServiceCall) -> None:
         hours = call.data.get(ATTR_HOURS)

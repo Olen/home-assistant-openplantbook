@@ -17,6 +17,7 @@ from homeassistant.core import (
 from homeassistant.helpers import device_registry
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.event import async_track_time_interval, async_call_later
+from homeassistant.util import dt
 from .plantbook_exception import OpenPlantbookException
 from .const import DOMAIN, OPB_MEASUREMENTS_TO_UPLOAD, ATTR_API, FLOW_UPLOAD_DATA, FLOW_UPLOAD_HASS_LOCATION_COUNTRY, \
     FLOW_UPLOAD_HASS_LOCATION_COORD
@@ -24,6 +25,7 @@ import logging
 
 UPLOAD_TIME_INTERVAL = timedelta(minutes=30)
 UPLOAD_WAIT_AFTER_RESTART = timedelta(minutes=5)
+# TODO 4: change time to once a day
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -128,11 +130,12 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
         # Get the latest_data timestamp from OPB response
         latest_data = res[0].get('latest_data')
+        _LOGGER.debug("Latest_data timestamp from OPB (in UTC): %s" % str(latest_data))
 
-        query_period_end_timestamp = dt_util.now()
+        query_period_end_timestamp = dt_util.now(dt.UTC)
 
         if latest_data:
-            query_period_start_timestamp = dt_util.parse_datetime(latest_data)
+            query_period_start_timestamp = dt_util.parse_datetime(latest_data).astimezone(dt.UTC)
 
             # If last upload was more than 7 days ago then only take last 7 days
             if query_period_end_timestamp - query_period_start_timestamp > timedelta(days=7):
@@ -171,12 +174,19 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                 # Convert HASS state to JTS time_series excluding 'unknown' states
                 for entity_states in sensor_entity_states.values():
                     for state in entity_states:
+                        # check if it is meaningful state
                         if state.state == 'unknown' or state.state == 'unavailable':
                             continue
+                        # check if we are getting the last value of the state which was not updated over query period
+                        if dt_util.as_utc(state.last_updated) == dt_util.as_utc(query_period_start_timestamp):
+                            # This is last state without updates - skip it
+                            continue
+
                         try:
                             float(state.state)
                         except:
                             continue
+
 
                         # Add a state to TimeSeries
                         measurements[entry.original_device_class].insert(
@@ -194,66 +204,8 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         _LOGGER.info("Uploading data from %s sensors was %s" % (len(jts_doc), "successful" if res else "failure"))
         return {'result': res}
     else:
-        _LOGGER.debug("Nothing to upload")
+        _LOGGER.info("Nothing to upload")
         return None
-
-    # res = asyncio.run(api.plant_data_upload(jts_doc, dry_run=False))
-    #
-    # plant_instance_id = i.id
-    # the_pid = i.model
-
-    # entries_str = [
-    #         entry.entity_id
-    #         for entry in plant_sensors_entries
-    #         if entry.domain == 'sensor' and entry.original_device_class in OPB_MEASUREMENTS_TO_UPLOAD
-    # ]
-
-    # sensor_entity_states = await hass.async_add_executor_job(
-    #     get_significant_states, hass, query_period_start_timestamp, query_period_end_timestamp, entries_str
-    # )
-
-    # supported_states = [
-    #     state
-    #     for state in sig_states
-    #     if state.attributes['device_class'] in OPB_MEASUREMENTS_TO_UPLOAD
-    # ]
-
-    # states = await hass.async_add_executor_job(
-    #     state_changes_during_period, hass, query_period_start_timestamp, query_period_end_timestamp, entries_str
-    # )
-    # assert len(states) >= 1
-    # for entity_states in states.values():
-    #     for state in entity_states:
-    #         assert ATTR_FAN_SPEED_LIST not in state.attributes
-    #         assert ATTR_FRIENDLY_NAME in state.attributes
-
-    # instance = get_instance(self.hass)
-    # states = await instance.async_add_executor_job(
-    #     _state_changes_during_period,
-    #     query_period_start_timestamp,
-    #     query_period_end_timestamp,
-    # )
-
-    # if alias is None:
-    #     raise OpenPlantbookException(
-    #         "invalid service call, required attribute %s missing", alias
-    #     )
-    #
-    # _LOGGER.info("Searching for %s", alias)
-    # try:
-    #     plant_data = await hass.data[DOMAIN][ATTR_API].async_plant_search(alias)
-    # except MissingClientIdOrSecret:
-    #     _LOGGER.error(
-    #         "Missing client ID or secret. Please set up the integration again"
-    #     )
-    #     raise
-    # state = len(plant_data[OPB_ATTR_RESULTS])
-    # attrs = {}
-    # for plant in plant_data[OPB_ATTR_RESULTS]:
-    #     pid = plant[OPB_PID]
-    #     attrs[pid] = plant[OPB_DISPLAY_PID]
-    # hass.states.async_set(f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}", state, attrs)
-
 
 async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Set up the time sync."""
