@@ -42,10 +42,9 @@ async def validate_input(hass: core.HomeAssistant, data):
     # Check if values are not empty
     try:
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
-            data[CONF_CLIENT_ID], data[CONF_CLIENT_SECRET], base_url='https://opb-dev.plantbook.io/api/v1'
+            data[CONF_CLIENT_ID], data[CONF_CLIENT_SECRET]
         )
         res = await hass.data[DOMAIN][ATTR_API]._async_get_token()
-        # TODO V: Verify connection to OPB here to check credentials are valid
         # TODO 4: Error messages for "unable to connect" and "creds are not valid" not working well.
     except PermissionError as ex:
         raise ValueError
@@ -178,6 +177,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             return False
         return True
 
+    # Moved to __init__.py
     # async def update_plantbook_options(
     #     self, hass: core.HomeAssistant, entry: config_entries.ConfigEntry
     # ):

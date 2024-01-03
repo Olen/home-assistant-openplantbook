@@ -23,9 +23,8 @@ from .const import DOMAIN, OPB_MEASUREMENTS_TO_UPLOAD, ATTR_API, FLOW_UPLOAD_DAT
     FLOW_UPLOAD_HASS_LOCATION_COORD
 import logging
 
-UPLOAD_TIME_INTERVAL = timedelta(minutes=30)
+UPLOAD_TIME_INTERVAL = timedelta(days=1)
 UPLOAD_WAIT_AFTER_RESTART = timedelta(minutes=5)
-# TODO 4: change time to once a day
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,8 +36,6 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
     if call:
         _LOGGER.info("Plant-sensors data upload service is triggered")
-
-    # def device_entities(hass: HomeAssistant, _device_id: str) -> Iterable[str]:
 
     _LOGGER.debug("Querying Plants' sensors data for upload")
 
@@ -70,16 +67,6 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
         # Get entity ids for plant devices.
         plant_sensors_entries = entity_registry.async_entries_for_device(entity_reg, i.id)
-
-        # entries_str = [
-        #     entry.entity_id
-        #     for entry in plant_sensors_entries
-        #     if entry.domain == 'sensor' and entry.original_device_class in OPB_MEASUREMENTS_TO_UPLOAD
-        # ]
-        #
-        # sensor_entity_states = await hass.async_add_executor_job(
-        #     get_significant_states, hass, query_period_start_timestamp, query_period_end_timestamp, entries_str
-        # )
 
         # It's hard to get to the PID for Plantbook so getting it via Plant-Device's entity_id and its states
         plant_device_state = None
@@ -145,7 +132,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
             query_period_start_timestamp = query_period_end_timestamp - timedelta(days=1)
 
         _LOGGER.debug("Querying plant-sensors data from %s to %s" % (
-        dt_util.as_local(query_period_start_timestamp), dt_util.as_local(query_period_end_timestamp)))
+            dt_util.as_local(query_period_start_timestamp), dt_util.as_local(query_period_end_timestamp)))
 
         # Create time_series for each measurement of the same "plant_id"
         measurements = {
@@ -165,10 +152,6 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                     get_significant_states, hass, query_period_start_timestamp, query_period_end_timestamp,
                     [entry.entity_id]
                 )
-                # state_changes_during_period = await get_instance(hass).async_add_executor_job(
-                #         get_significant_states, hass, query_period_start_timestamp, query_period_end_timestamp,
-                #         [entry.entity_id]
-                # )
 
                 _LOGGER.debug("Parsing states of: %s " % entry)
                 # Convert HASS state to JTS time_series excluding 'unknown' states
@@ -186,7 +169,6 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                             float(state.state)
                         except:
                             continue
-
 
                         # Add a state to TimeSeries
                         measurements[entry.original_device_class].insert(
@@ -207,9 +189,9 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         _LOGGER.info("Nothing to upload")
         return None
 
+
 async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Set up the time sync."""
-    # TODO V: Check if sensor upload is enabled
 
     _LOGGER.debug("Setting up plant-sensors upload schedule")
 
@@ -252,9 +234,6 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
 
         start_schedule(None)
         # hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, start_schedule)
-
-        # remove_upload_listener = async_track_time_interval(hass, upload_data, UPLOAD_TIME_INTERVAL)
-        # await upload_data(dt_util.utcnow())
 
     else:
         _LOGGER.info("Plant-sensors data upload schedule is disabled")

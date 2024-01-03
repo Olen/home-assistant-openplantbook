@@ -65,11 +65,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
-    # TODO 4: change URL back to prod
+
     if ATTR_API not in hass.data[DOMAIN]:
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
-            entry.data.get(CONF_CLIENT_ID), entry.data.get(CONF_CLIENT_SECRET),
-            base_url='https://opb-dev.plantbook.io/api/v1'
+            entry.data.get(CONF_CLIENT_ID), entry.data.get(CONF_CLIENT_SECRET)
         )
 
     if ATTR_SPECIES not in hass.data[DOMAIN]:
