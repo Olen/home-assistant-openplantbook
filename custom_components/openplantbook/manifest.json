@@ -3,11 +3,11 @@
   "name": "OpenPlantbook",
   "codeowners": ["@Olen"],
   "config_flow": true,
+  "dependencies": ["history","recorder"],
   "documentation": "https://github.com/Olen/home-assistant-openplantbook/",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Olen/home-assistant-openplantbook/issues",
-  "dependencies": ["recorder","history"],
-  "requirements": ["openplantbook-sdk==0.4.5","json-timeseries==0.1.4"],
-  "version": "1.3.0-beta1",
-  "loggers": ["openplantbook_sdk"]
+  "loggers": ["openplantbook_sdk"],
+  "requirements": ["json-timeseries==0.1.4","openplantbook-sdk==0.4.5"],
+  "version": "1.3.0-beta1"
 }
