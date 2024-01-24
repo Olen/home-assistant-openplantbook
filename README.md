@@ -81,13 +81,13 @@ There are 2 options to share location:
 
 Location can be set in Home Assistant under Settings/System/General as on screenshot below:
 
-![image](.\images\hass-location.png)
+![image](./images/hass-location.png)
 
 It'd be great if you could share at least a country.
 
 >**NOTE**: You can enable DEBUG logging for the integration to see what is being shared.
 
-![image](.\images\debug-logging.png)
+![image](./images/debug-logging.png)
 
 ### Automatically download images from OpenPlantbook.
 
