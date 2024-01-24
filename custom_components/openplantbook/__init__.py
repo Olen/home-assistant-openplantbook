@@ -44,10 +44,16 @@ from .const import (
     OPB_SERVICE_GET,
     OPB_SERVICE_SEARCH,
     OPB_SERVICE_UPLOAD,
-    OPB_MEASUREMENTS_TO_UPLOAD, FLOW_UPLOAD_DATA
+    OPB_MEASUREMENTS_TO_UPLOAD,
+    FLOW_UPLOAD_DATA,
 )
 
-from .uploader import UPLOAD_TIME_INTERVAL, UPLOAD_WAIT_AFTER_RESTART, async_setup_upload_schedule, plant_data_upload
+from .uploader import (
+    UPLOAD_TIME_INTERVAL,
+    UPLOAD_WAIT_AFTER_RESTART,
+    async_setup_upload_schedule,
+    plant_data_upload,
+)
 
 from .plantbook_exception import OpenPlantbookException
 
@@ -111,7 +117,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     f"{DOMAIN}.{{}}", plant_data[OPB_PID], current_ids={}
                 )
                 if entry.options.get(FLOW_DOWNLOAD_IMAGES) and plant_data.get(
-                        ATTR_IMAGE
+                    ATTR_IMAGE
                 ):
                     filename = slugify(
                         urllib.parse.unquote(os.path.basename(plant_data[ATTR_IMAGE])),
@@ -164,7 +170,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             _LOGGER.debug("The other process completed successfully")
             return hass.data[DOMAIN][ATTR_SPECIES][species]
         elif datetime.now() < datetime.fromisoformat(
-                hass.data[DOMAIN][ATTR_SPECIES][species][OPB_ATTR_TIMESTAMP]
+            hass.data[DOMAIN][ATTR_SPECIES][species][OPB_ATTR_TIMESTAMP]
         ) + timedelta(hours=CACHE_TIME):
             # We already have the data we need, so let's just return
             _LOGGER.debug("We already have cached data for %s", species)
@@ -202,7 +208,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         return attrs
 
     async def plant_data_upload_service(call: ServiceCall) -> ServiceResponse:
-        return {'result': await plant_data_upload(hass, entry=entry, call=call)}
+        return {"result": await plant_data_upload(hass, entry=entry, call=call)}
 
     async def clean_cache(call: ServiceCall) -> None:
         hours = call.data.get(ATTR_HOURS)
@@ -212,7 +218,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             for species in list(hass.data[DOMAIN][ATTR_SPECIES]):
                 value = hass.data[DOMAIN][ATTR_SPECIES][species]
                 if datetime.now() > datetime.fromisoformat(
-                        value[OPB_ATTR_TIMESTAMP]
+                    value[OPB_ATTR_TIMESTAMP]
                 ) + timedelta(hours=hours):
                     _LOGGER.debug("Removing %s from cache", species)
                     entity_id = async_generate_entity_id(
@@ -264,7 +270,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         DOMAIN, OPB_SERVICE_CLEAN_CACHE, clean_cache, None, SupportsResponse.NONE
     )
     hass.services.async_register(
-        DOMAIN, OPB_SERVICE_UPLOAD, plant_data_upload_service, None, SupportsResponse.OPTIONAL
+        DOMAIN,
+        OPB_SERVICE_UPLOAD,
+        plant_data_upload_service,
+        None,
+        SupportsResponse.OPTIONAL,
     )
     hass.states.async_set(f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}", 0)
 

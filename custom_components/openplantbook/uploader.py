@@ -5,22 +5,25 @@ from json_timeseries import JtsDocument, TsRecord, TimeSeries
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.recorder import get_instance
-from homeassistant.components.recorder.history import get_significant_states, \
-    get_last_state_changes
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import (
-    HomeAssistant,
-    callback,
-    Event,
-    HassJob
+from homeassistant.components.recorder.history import (
+    get_significant_states,
+    get_last_state_changes,
 )
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, callback, Event, HassJob
 from homeassistant.helpers import device_registry
 from homeassistant.helpers import entity_registry
-from homeassistant.helpers.event import async_track_time_interval, async_call_later
+from homeassistant.helpers.event import async_track_time_int1erval, async_call_later
 from homeassistant.util import dt
 from .plantbook_exception import OpenPlantbookException
-from .const import DOMAIN, OPB_MEASUREMENTS_TO_UPLOAD, ATTR_API, FLOW_UPLOAD_DATA, FLOW_UPLOAD_HASS_LOCATION_COUNTRY, \
-    FLOW_UPLOAD_HASS_LOCATION_COORD
+from .const import (
+    DOMAIN,
+    OPB_MEASUREMENTS_TO_UPLOAD,
+    ATTR_API,
+    FLOW_UPLOAD_DATA,
+    FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
+    FLOW_UPLOAD_HASS_LOCATION_COORD,
+)
 import logging
 
 UPLOAD_TIME_INTERVAL = timedelta(days=1)
@@ -56,7 +59,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
     plant_devices = []
     # Looking for Plant-component's devices
     for i, d in device_reg.devices.data.items():
-        if 'plant' in str(d.identifiers) and d.name_by_user is None:
+        if "plant" in str(d.identifiers) and d.name_by_user is None:
             plant_devices.append(d)
 
     entity_reg = entity_registry.async_get(hass)
@@ -64,31 +67,33 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
     # Go through plant devices one by one and extract corresponding sensors' states
     for i in plant_devices:
-
         # Get entity ids for plant devices.
-        plant_sensors_entries = entity_registry.async_entries_for_device(entity_reg, i.id)
+        plant_sensors_entries = entity_registry.async_entries_for_device(
+            entity_reg, i.id
+        )
 
         # It's hard to get to the PID for Plantbook so getting it via Plant-Device's entity_id and its states
         plant_device_state = None
         plant_entity_id = None
         for entry in plant_sensors_entries:
-            if entry.domain == 'plant':
+            if entry.domain == "plant":
                 plant_entity_id = entry.entity_id
 
                 # Get OPB component's config state
                 plant_device_state = await get_instance(hass).async_add_executor_job(
-                    get_last_state_changes, hass, 1,
-                    plant_entity_id
+                    get_last_state_changes, hass, 1, plant_entity_id
                 )
                 break
 
         if not plant_device_state or not plant_entity_id:
             _LOGGER.error(
-                "Unable to query because Config-state is not found for Plant-device %s - %s" % (i.name, i.model))
+                "Unable to query because Config-state is not found for Plant-device %s - %s"
+                % (i.name, i.model)
+            )
             continue
 
         # Corresponding PID(Plant_ID)
-        opb_pid = plant_device_state[plant_entity_id][0].attributes['species_original']
+        opb_pid = plant_device_state[plant_entity_id][0].attributes["species_original"]
 
         # Plant-instance ID
         plant_instance_id = i.id
@@ -97,60 +102,83 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         reg_map = {plant_instance_id: opb_pid}
         _LOGGER.debug("Registering Plant-instance: %s" % str(reg_map))
         try:
-            res = await hass.data[DOMAIN][ATTR_API].async_plant_instance_register(sensor_pid_map=reg_map,
-                                                                                  location_country=location.get(
-                                                                                      'country'),
-                                                                                  location_lon=location.get('lon'),
-                                                                                  location_lat=location.get('lat'))
+            res = await hass.data[DOMAIN][ATTR_API].async_plant_instance_register(
+                sensor_pid_map=reg_map,
+                location_country=location.get("country"),
+                location_lon=location.get("lon"),
+                location_lat=location.get("lat"),
+            )
         except Exception as ex:
-            _LOGGER.error("Unable to register Plant-instance: %s due to Exception: %s" % (str(reg_map), ex))
+            _LOGGER.error(
+                "Unable to register Plant-instance: %s due to Exception: %s"
+                % (str(reg_map), ex)
+            )
             continue
 
         _LOGGER.debug("Registration response: %s" % str(res))
         # Error out if unexpected response has been received
         try:
             # Get OpenPlantbook generated ID for the Plant-instance
-            custom_id = res[0]['id']
+            custom_id = res[0]["id"]
         except:
             _LOGGER.error("Unexpected API response: %s" % res)
             continue
 
         # Get the latest_data timestamp from OPB response
-        latest_data = res[0].get('latest_data')
+        latest_data = res[0].get("latest_data")
         _LOGGER.debug("Latest_data timestamp from OPB (in UTC): %s" % str(latest_data))
 
         query_period_end_timestamp = dt_util.now(dt.UTC)
 
         if latest_data:
-            query_period_start_timestamp = dt_util.parse_datetime(latest_data).astimezone(dt.UTC)
+            query_period_start_timestamp = dt_util.parse_datetime(
+                latest_data
+            ).astimezone(dt.UTC)
 
             # If last upload was more than 7 days ago then only take last 7 days
-            if query_period_end_timestamp - query_period_start_timestamp > timedelta(days=7):
-                query_period_start_timestamp = query_period_end_timestamp - timedelta(days=7)
+            if query_period_end_timestamp - query_period_start_timestamp > timedelta(
+                days=7
+            ):
+                query_period_start_timestamp = query_period_end_timestamp - timedelta(
+                    days=7
+                )
         else:
             # First time upload for the sensor as no latest_data in the response. Taking only last day of data
-            query_period_start_timestamp = query_period_end_timestamp - timedelta(days=1)
+            query_period_start_timestamp = query_period_end_timestamp - timedelta(
+                days=1
+            )
 
-        _LOGGER.debug("Querying plant-sensors data from %s to %s" % (
-            dt_util.as_local(query_period_start_timestamp), dt_util.as_local(query_period_end_timestamp)))
+        _LOGGER.debug(
+            "Querying plant-sensors data from %s to %s"
+            % (
+                dt_util.as_local(query_period_start_timestamp),
+                dt_util.as_local(query_period_end_timestamp),
+            )
+        )
 
         # Create time_series for each measurement of the same "plant_id"
         measurements = {
-            'temperature': TimeSeries(identifier=custom_id, name="temp"),
-            'moisture': TimeSeries(identifier=custom_id, name="soil_moist"),
-            'conductivity': TimeSeries(identifier=custom_id, name="soil_ec"),
-            'illuminance': TimeSeries(identifier=custom_id, name="light_lux"),
-            'humidity': TimeSeries(identifier=custom_id, name="air_humid")
+            "temperature": TimeSeries(identifier=custom_id, name="temp"),
+            "moisture": TimeSeries(identifier=custom_id, name="soil_moist"),
+            "conductivity": TimeSeries(identifier=custom_id, name="soil_ec"),
+            "illuminance": TimeSeries(identifier=custom_id, name="light_lux"),
+            "humidity": TimeSeries(identifier=custom_id, name="air_humid"),
         }
 
         # Go through sensors entries
         for entry in plant_sensors_entries:
             # process supported measurements of the sensor
-            if entry.domain == 'sensor' and entry.original_device_class in OPB_MEASUREMENTS_TO_UPLOAD:
+            if (
+                entry.domain == "sensor"
+                and entry.original_device_class in OPB_MEASUREMENTS_TO_UPLOAD
+            ):
                 # Get sensors states (history) over the period of time
                 sensor_entity_states = await get_instance(hass).async_add_executor_job(
-                    get_significant_states, hass, query_period_start_timestamp, query_period_end_timestamp,
-                    [entry.entity_id]
+                    get_significant_states,
+                    hass,
+                    query_period_start_timestamp,
+                    query_period_end_timestamp,
+                    [entry.entity_id],
                 )
 
                 _LOGGER.debug("Parsing states of: %s " % entry)
@@ -158,10 +186,12 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                 for entity_states in sensor_entity_states.values():
                     for state in entity_states:
                         # check if it is meaningful state
-                        if state.state == 'unknown' or state.state == 'unavailable':
+                        if state.state == "unknown" or state.state == "unavailable":
                             continue
                         # check if we are getting the last value of the state which was not updated over query period
-                        if dt_util.as_utc(state.last_updated) == dt_util.as_utc(query_period_start_timestamp):
+                        if dt_util.as_utc(state.last_updated) == dt_util.as_utc(
+                            query_period_start_timestamp
+                        ):
                             # This is last state without updates - skip it
                             continue
 
@@ -172,8 +202,12 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
                         # Add a state to TimeSeries
                         measurements[entry.original_device_class].insert(
-                            TsRecord(dt_util.as_local(state.last_updated), state.state))
-                        _LOGGER.debug("Added Time-Series: %s %s" % (dt_util.as_local(state.last_updated), state.state))
+                            TsRecord(dt_util.as_local(state.last_updated), state.state)
+                        )
+                        _LOGGER.debug(
+                            "Added Time-Series: %s %s"
+                            % (dt_util.as_local(state.last_updated), state.state)
+                        )
 
         # Remove empty measurements
         for m in measurements.values():
@@ -182,9 +216,14 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
     if len(jts_doc) > 0:
         _LOGGER.debug("An upload payload: %s" % jts_doc.toJSONString())
-        res = await hass.data[DOMAIN][ATTR_API].async_plant_data_upload(jts_doc, dry_run=False)
-        _LOGGER.info("Uploading data from %s sensors was %s" % (len(jts_doc), "successful" if res else "failure"))
-        return {'result': res}
+        res = await hass.data[DOMAIN][ATTR_API].async_plant_data_upload(
+            jts_doc, dry_run=False
+        )
+        _LOGGER.info(
+            "Uploading data from %s sensors was %s"
+            % (len(jts_doc), "successful" if res else "failure")
+        )
+        return {"result": res}
     else:
         _LOGGER.info("Nothing to upload")
         return None
@@ -204,7 +243,6 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
     upload_sensors = entry.options.get(FLOW_UPLOAD_DATA)
 
     if upload_sensors:
-
         _LOGGER.info("Plant-sensors data upload schedule is active")
 
         @callback
@@ -229,7 +267,7 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
                 name="opb sensors upload daily",
                 cancel_on_shutdown=True,
             )
-            hass.data[DOMAIN]['remove_upload_listener'] = remove_upload_listener
+            hass.data[DOMAIN]["remove_upload_listener"] = remove_upload_listener
             entry.async_on_unload(remove_upload_listener)
 
         start_schedule(None)
@@ -238,9 +276,10 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
     else:
         _LOGGER.info("Plant-sensors data upload schedule is disabled")
 
-        if hass.data[DOMAIN].get('remove_upload_listener'):
-            hass.data[DOMAIN]['remove_upload_listener']()
-            hass.data[DOMAIN]['remove_upload_listener'] = None
+        if hass.data[DOMAIN].get("remove_upload_listener"):
+            hass.data[DOMAIN]["remove_upload_listener"]()
+            hass.data[DOMAIN]["remove_upload_listener"] = None
+
 
 # class Plant_data_uploader:
 #

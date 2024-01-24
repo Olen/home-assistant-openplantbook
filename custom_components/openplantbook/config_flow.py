@@ -20,7 +20,9 @@ from .const import (
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
-    FLOW_UPLOAD_DATA, FLOW_UPLOAD_HASS_LOCATION_COUNTRY, FLOW_UPLOAD_HASS_LOCATION_COORD,
+    FLOW_UPLOAD_DATA,
+    FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
+    FLOW_UPLOAD_HASS_LOCATION_COORD,
 )
 
 TITLE = "title"
@@ -28,7 +30,13 @@ TITLE = "title"
 _LOGGER = logging.getLogger(__name__)
 
 DATA_SCHEMA = vol.Schema({CONF_CLIENT_ID: str, CONF_CLIENT_SECRET: str})
-UPLOAD_SCHEMA = vol.Schema({FLOW_UPLOAD_DATA: bool, FLOW_UPLOAD_HASS_LOCATION_COUNTRY: bool, FLOW_UPLOAD_HASS_LOCATION_COORD: bool})
+UPLOAD_SCHEMA = vol.Schema(
+    {
+        FLOW_UPLOAD_DATA: bool,
+        FLOW_UPLOAD_HASS_LOCATION_COUNTRY: bool,
+        FLOW_UPLOAD_HASS_LOCATION_COORD: bool,
+    }
+)
 
 
 async def validate_input(hass: core.HomeAssistant, data):
@@ -58,6 +66,7 @@ async def validate_input(hass: core.HomeAssistant, data):
 
     return {TITLE: "Openplantbook API"}
 
+
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for OpenPlantBook."""
 
@@ -83,7 +92,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except ValueError as ex:
                 errors[CONF_CLIENT_ID] = "invalid_auth"
             except Exception as ex:
-                errors['base'] = "cannot_connect"
+                errors["base"] = "cannot_connect"
 
             if not errors:
                 # Input is valid, set data.
@@ -94,6 +103,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
+
     async def async_step_upload(self, user_input=None):
         """
         Handle the upload step.
@@ -101,8 +111,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """
         errors = {}
         if user_input is not None:
-                # self.options=user_input
-                return self.async_create_entry(title="Openplantbook API", data=self.data, options=user_input)
+            # self.options=user_input
+            return self.async_create_entry(
+                title="Openplantbook API", data=self.data, options=user_input
+            )
 
         return self.async_show_form(
             step_id="upload", data_schema=UPLOAD_SCHEMA, errors=errors
@@ -130,8 +142,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         download_path = self.entry.options.get(FLOW_DOWNLOAD_PATH, DEFAULT_IMAGE_PATH)
         # Uploader settings
         upload_sensors = self.entry.options.get(FLOW_UPLOAD_DATA, False)
-        location_country = self.entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY, False)
-        location_coordinates = self.entry.options.get(FLOW_UPLOAD_HASS_LOCATION_COORD, False)
+        location_country = self.entry.options.get(
+            FLOW_UPLOAD_HASS_LOCATION_COUNTRY, False
+        )
+        location_coordinates = self.entry.options.get(
+            FLOW_UPLOAD_HASS_LOCATION_COORD, False
+        )
 
         if user_input is not None:
             _LOGGER.debug("User: %s", user_input)
@@ -144,15 +160,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             location_country = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY)
             location_coordinates = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COORD)
 
-        _LOGGER.debug(
-            "Init: %s, %s", self.entry.entry_id, self.entry.options
-        )
+        _LOGGER.debug("Init: %s, %s", self.entry.entry_id, self.entry.options)
 
-        data_schema = {vol.Optional(FLOW_UPLOAD_DATA, default=upload_sensors): cv.boolean,
-                       vol.Optional(FLOW_UPLOAD_HASS_LOCATION_COUNTRY, default=location_country): cv.boolean,
-                       vol.Optional(FLOW_UPLOAD_HASS_LOCATION_COORD, default=location_coordinates): cv.boolean,
-                       vol.Optional(FLOW_DOWNLOAD_IMAGES, default=download_images): cv.boolean,
-                       vol.Optional(FLOW_DOWNLOAD_PATH, default=download_path): cv.string}
+        data_schema = {
+            vol.Optional(FLOW_UPLOAD_DATA, default=upload_sensors): cv.boolean,
+            vol.Optional(
+                FLOW_UPLOAD_HASS_LOCATION_COUNTRY, default=location_country
+            ): cv.boolean,
+            vol.Optional(
+                FLOW_UPLOAD_HASS_LOCATION_COORD, default=location_coordinates
+            ): cv.boolean,
+            vol.Optional(FLOW_DOWNLOAD_IMAGES, default=download_images): cv.boolean,
+            vol.Optional(FLOW_DOWNLOAD_PATH, default=download_path): cv.string,
+        }
 
         return self.async_show_form(
             step_id="init", data_schema=vol.Schema(data_schema), errors=self.errors
@@ -184,5 +204,3 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     #     """Updating plantbook options"""
     #     _LOGGER.debug("Update: %s, %s, %s", entry.entry_id, entry.data, entry.options)
     #     if self.entry.options.get(FLOW_UPLOAD_DATA):
-
-
