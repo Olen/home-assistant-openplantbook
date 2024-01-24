@@ -7,6 +7,15 @@
           "client_secret": "Secret"
         },
         "description": "Log in to https://open.plantbook.io/apikey/show/ and get you API client id and secret."
+      },
+      "upload": {
+        "data": {
+          "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
+          "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
+          "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration"
+        },
+        "description": "Anonymously upload Plant-sensors data to OpenPlantbook. Details: https://open.plantbook.io/ui/sensor-data/",
+        "title": "Plant-sensors data uploading"
       }
     },
     "error": {
@@ -22,8 +31,11 @@
     "step": {
       "init": {
         "title": "Options",
-        "description": "",
+        "description": "More information about Plant data uploading at https://open.plantbook.io/ui/sensor-data/",
         "data": {
+          "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
+          "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
+          "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration",
           "download_images": "Automatically download plant images",
           "download_path": "Path to save images"
         }
