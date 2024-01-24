@@ -101,6 +101,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 _LOGGER.error(
                     "Missing client ID or secret. Please set up the integration again"
                 )
+                del hass.data[DOMAIN][ATTR_SPECIES][species]
                 raise
 
             if plant_data:
@@ -140,6 +141,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     entity_id, plant_data[OPB_DISPLAY_PID], plant_data
                 )
                 return plant_data
+            del hass.data[DOMAIN][ATTR_SPECIES][species]
             return {}
         elif OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
             # If more than one "get_plant" is triggered for the same species, we wait for up to
