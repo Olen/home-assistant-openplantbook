@@ -13,7 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback, Event, HassJob
 from homeassistant.helpers import device_registry
 from homeassistant.helpers import entity_registry
-from homeassistant.helpers.event import async_track_time_int1erval, async_call_later
+from homeassistant.helpers.event import async_track_time_interval, async_call_later
 from homeassistant.util import dt
 from .plantbook_exception import OpenPlantbookException
 from .const import (
