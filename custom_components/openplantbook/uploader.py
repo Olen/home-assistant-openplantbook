@@ -162,7 +162,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
             "moisture": TimeSeries(identifier=custom_id, name="soil_moist"),
             "conductivity": TimeSeries(identifier=custom_id, name="soil_ec"),
             "illuminance": TimeSeries(identifier=custom_id, name="light_lux"),
-            "humidity": TimeSeries(identifier=custom_id, name="air_humid"),
+            "humidity": TimeSeries(identifier=custom_id, name="env_humid"),
         }
 
         # Go through sensors entries

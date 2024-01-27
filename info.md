@@ -1,3 +1,3 @@
 # OpenPlantbook
 
-Interface to search the OpenPlantbook directly from Home-Assistant
+Integration between Home-Assistant and OpenPlantbook.io
