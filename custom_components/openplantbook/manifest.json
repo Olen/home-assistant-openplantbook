@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/Olen/home-assistant-openplantbook/issues",
   "loggers": ["openplantbook_sdk"],
   "requirements": ["json-timeseries==0.1.4","openplantbook-sdk==0.4.5"],
-  "version": "1.3.0-beta2"
+  "version": "1.3.0-beta3"
 }
