@@ -24,6 +24,8 @@ from .const import (
     FLOW_UPLOAD_DATA,
     FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
     FLOW_UPLOAD_HASS_LOCATION_COORD,
+    OPB_INFO_MESSAGE,
+    OPB_CURRENT_INFO_MESSAGE,
 )
 
 TITLE = "title"
@@ -98,6 +100,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not errors:
                 # Input is valid, set data.
                 self.data = user_input
+                # Skip upgrade message for new installations
+                self.data[OPB_INFO_MESSAGE] = OPB_CURRENT_INFO_MESSAGE
                 # Return the form of the next step.
                 return await self.async_step_upload()
 

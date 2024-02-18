@@ -1,48 +1,48 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "data": {
-          "client_id": "Client ID",
-          "client_secret": "Secret"
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured"
         },
-        "description": "Log in to https://open.plantbook.io/apikey/show/ and get you API client id and secret."
-      },
-      "upload": {
-        "data": {
-          "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
-          "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
-          "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration"
+        "error": {
+            "cannot_connect": "Failed to connect",
+            "invalid_auth": "Invalid authentication",
+            "unknown": "Unexpected error"
         },
-        "description": "Anonymously upload Plant-sensors data to OpenPlantbook. Details: https://open.plantbook.io/ui/sensor-data/",
-        "title": "Plant-sensors data uploading"
-      }
-    },
-    "error": {
-      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
-      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
-      "unknown": "[%key:common::config_flow::error::unknown%]"
-    },
-    "abort": {
-      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Options",
-        "description": "More information about Plant data uploading at https://open.plantbook.io/ui/sensor-data/",
-        "data": {
-          "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
-          "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
-          "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration",
-          "download_images": "Automatically download plant images",
-          "download_path": "Path to save images"
+        "step": {
+            "upload": {
+                "data": {
+                    "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
+                    "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration",
+                    "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration"
+                },
+                "description": "Upload Plant-sensors data to OpenPlantbook. Please consider enabling it to contribute to a creation of a Worldwide Browsable dataset. More info: https://open.plantbook.io/ui/sensor-data/",
+                "title": "Plant-sensors data uploading"
+            },
+            "user": {
+                "data": {
+                    "client_id": "Client ID",
+                    "client_secret": "Secret"
+                },
+                "description": "Log in to https://open.plantbook.io/apikey/show/ and get you API client id and secret."
+            }
         }
-      }
     },
-    "error": {
-      "invalid_path": "Invalid download path"
+    "options": {
+        "error": {
+            "invalid_path": "Invalid download path"
+        },
+        "step": {
+            "init": {
+                "data": {
+                    "download_images": "Automatically download plant images",
+                    "download_path": "Path to save images",
+                    "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
+                    "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration",
+                    "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration"
+                },
+                "description": "More information about Plant data uploading at https://open.plantbook.io/ui/sensor-data/",
+                "title": "Options"
+            }
+        }
     }
-  }
 }

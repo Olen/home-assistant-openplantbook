@@ -25,6 +25,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.util import raise_if_invalid_filename, slugify
 
+from homeassistant.components.persistent_notification import (
+    create as create_notification,
+)
+
 from .const import (
     ATTR_ALIAS,
     ATTR_API,
@@ -47,6 +51,8 @@ from .const import (
     OPB_SERVICE_UPLOAD,
     OPB_MEASUREMENTS_TO_UPLOAD,
     FLOW_UPLOAD_DATA,
+    OPB_INFO_MESSAGE,
+    OPB_CURRENT_INFO_MESSAGE,
 )
 
 from .uploader import (
@@ -80,6 +86,31 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     if ATTR_SPECIES not in hass.data[DOMAIN]:
         hass.data[DOMAIN][ATTR_SPECIES] = {}
+
+    # Display one-off notification about new functionality after upgrade
+    if not entry.data.get(OPB_INFO_MESSAGE):
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, OPB_INFO_MESSAGE: OPB_CURRENT_INFO_MESSAGE}
+        )
+        if not entry.options.get(FLOW_UPLOAD_DATA):
+            _LOGGER.debug(
+                "Trigger after upgrade notification: %s", OPB_CURRENT_INFO_MESSAGE
+            )
+            create_notification(
+                hass=hass,
+                title="New Feature available in OpenPlantbook Integration",
+                message=f"Plant-sensors data uploading is available now. Please consider enabling it in ["
+                f"OpenPlantbook Integration's settings]("
+                f"https://github.com/Olen/home-assistant-openplantbook?tab=readme-ov-file#configuration) to "
+                f"contribute to a creation of a Worldwide [Browsable]("
+                f"https://open.plantbook.io/ui/sensor-data/) dataset. [More info.]("
+                f"https://open.plantbook.io/ui/sensor-data/)",
+            )
+        else:
+            _LOGGER.debug(
+                "Skipping after upgrade notification: %s because UPLOAD option is enabled",
+                OPB_CURRENT_INFO_MESSAGE,
+            )
 
     async def get_plant(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
