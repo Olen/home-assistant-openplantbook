@@ -14,7 +14,7 @@
           "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
           "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration"
         },
-        "description": "Anonymously upload Plant-sensors data to OpenPlantbook. Details: https://open.plantbook.io/ui/sensor-data/",
+        "description": "Upload Plant-sensors data to OpenPlantbook. Please consider enabling it to contribute to a creation of a Worldwide Browsable dataset. More info: https://open.plantbook.io/ui/sensor-data/",
         "title": "Plant-sensors data uploading"
       }
     },
