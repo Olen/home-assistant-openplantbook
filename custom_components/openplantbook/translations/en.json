@@ -40,7 +40,7 @@
                     "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration",
                     "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration"
                 },
-                "description": "More information about Plant data uploading at https://open.plantbook.io/ui/sensor-data/",
+                "description": "More information about Plant-sensors data uploading at https://open.plantbook.io/ui/sensor-data/",
                 "title": "Options"
             }
         }
