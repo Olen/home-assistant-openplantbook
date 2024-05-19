@@ -103,7 +103,6 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         reg_map = {plant_instance_id: opb_pid}
         _LOGGER.debug("Registering Plant-instance: %s" % str(reg_map))
 
-        failure_flag = False
         res = None
         caught_exception = None
         try:
@@ -118,7 +117,6 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         except ValidationError as ex:
             caught_exception = ex
             opb_errors = ex.errors
-            failure_flag = True
 
             if opb_errors[0]["code"] == "invalid_pid":
                 # workaround for case when HASS original_species is set to DISPLAY_PID rather than PID attempt to find
@@ -148,7 +146,6 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                                 "Plant-instance has been registered with %s"
                                 % (opb_disp_pid, opb_pid, opb_pid)
                             )
-                            failure_flag = False
                             caught_exception = None
 
                 except Exception as ex_in:
