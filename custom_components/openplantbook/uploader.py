@@ -2,6 +2,7 @@ from datetime import timedelta, datetime
 from typing import Any
 
 from json_timeseries import JtsDocument, TsRecord, TimeSeries
+from openplantbook_sdk import ValidationError
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.recorder import get_instance
@@ -98,9 +99,12 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         # Plant-instance ID
         plant_instance_id = i.id
 
-        # Register Plant-instance
+        # Registering Plant-instance
         reg_map = {plant_instance_id: opb_pid}
         _LOGGER.debug("Registering Plant-instance: %s" % str(reg_map))
+
+        res = None
+        caught_exception = None
         try:
             res = await hass.data[DOMAIN][ATTR_API].async_plant_instance_register(
                 sensor_pid_map=reg_map,
@@ -108,20 +112,65 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                 location_lon=location.get("lon"),
                 location_lat=location.get("lat"),
             )
+
+        # OPB ValidationFailure
+        except ValidationError as ex:
+            caught_exception = ex
+            opb_errors = ex.errors
+
+            if opb_errors[0]["code"] == "invalid_pid":
+                # workaround for case when HASS original_species is set to DISPLAY_PID rather than PID attempt to find
+                # the plant using PID as DISPLAY_PID and if found only 1 plant and DISPLAY_PID match they retry
+                try:
+                    search_res = await hass.data[DOMAIN][ATTR_API].async_plant_search(
+                        search_text=opb_pid
+                    )
+
+                    if search_res["count"] == 1:
+                        if opb_pid == search_res["results"][0]["display_pid"]:
+                            opb_disp_pid = opb_pid
+                            opb_pid = search_res["results"][0]["pid"]
+                            reg_map[plant_instance_id] = opb_pid
+
+                            res = await hass.data[DOMAIN][
+                                ATTR_API
+                            ].async_plant_instance_register(
+                                sensor_pid_map=reg_map,
+                                location_country=location.get("country"),
+                                location_lon=location.get("lon"),
+                                location_lat=location.get("lat"),
+                            )
+
+                            _LOGGER.debug(
+                                "The workaround found match between display_pid '%s' and pid: '%s'. The "
+                                "Plant-instance has been registered with %s"
+                                % (opb_disp_pid, opb_pid, opb_pid)
+                            )
+                            caught_exception = None
+
+                except Exception as ex_in:
+                    _LOGGER.debug(
+                        "The 'display_pid workaround' failed to register Plant-instance: %s due to Exception: %s"
+                        % (str(reg_map), ex_in)
+                    )
+
         except Exception as ex:
+            caught_exception = ex
+
+        if caught_exception:
             _LOGGER.error(
-                "Unable to register Plant-instance: %s due to Exception: %s"
-                % (str(reg_map), ex)
+                "Cannot upload sensor data for plant '%s' because Unable to register Plant-instance due to Exception: %s"
+                % (str(reg_map), caught_exception)
             )
             continue
 
-        _LOGGER.debug("Registration response: %s" % str(res))
+        _LOGGER.debug("Registration is successful with response: %s" % str(res))
         # Error out if unexpected response has been received
         try:
             # Get OpenPlantbook generated ID for the Plant-instance
             custom_id = res[0]["id"]
         except:
-            _LOGGER.error("Unexpected API response: %s" % res)
+            _LOGGER.error("Cannot parse API response: %s" % res)
             continue
 
         # Get the latest_data timestamp from OPB response

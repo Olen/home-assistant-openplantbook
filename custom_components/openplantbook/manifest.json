@@ -17,7 +17,7 @@
   ],
   "requirements": [
     "json-timeseries==0.1.4",
-    "openplantbook-sdk==0.4.5"
+    "openplantbook-sdk==0.4.7"
   ],
-  "version": "1.3.0-beta4"
+  "version": "1.3.0-beta5"
 }
