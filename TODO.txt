@@ -3,3 +3,4 @@
 # TODO ?: OptionsFlow make separate step for uploader.
 # TODO ?: UI option to disable location detection
 # TODO V: Config_flow error messages not translated
+# TODO V: Sanity limit for values

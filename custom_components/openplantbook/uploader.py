@@ -94,6 +94,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
             continue
 
         # Corresponding PID(Plant_ID)
+        _LOGGER.debug("Plant_device_state: %s" % (plant_device_state))
         opb_pid = plant_device_state[plant_entity_id][0].attributes["species_original"]
 
         # Plant-instance ID
@@ -115,10 +116,12 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
         # OPB ValidationFailure
         except ValidationError as ex:
+
             caught_exception = ex
             opb_errors = ex.errors
 
             if opb_errors[0]["code"] == "invalid_pid":
+
                 # workaround for case when HASS original_species is set to DISPLAY_PID rather than PID attempt to find
                 # the plant using PID as DISPLAY_PID and if found only 1 plant and DISPLAY_PID match they retry
                 try:
@@ -127,6 +130,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                     )
 
                     if search_res["count"] == 1:
+
                         if opb_pid == search_res["results"][0]["display_pid"]:
                             opb_disp_pid = opb_pid
                             opb_pid = search_res["results"][0]["pid"]
@@ -249,13 +253,87 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                         except:
                             continue
 
+                        # get state and round to integer
+                        # Convert Fahrenheit to Celsius
+                        if (
+                            state.attributes.get("unit_of_measurement") == "°F"
+                            and state.attributes.get("device_class") == "temperature"
+                        ):
+                            supported_state = round((float(state.state) - 32) * 5 / 9)
+                            _LOGGER.debug(
+                                "Temperature converted from %s F to %s C"
+                                % (state, supported_state)
+                            )
+                        else:
+                            supported_state = round(float(state.state))
+
+                        # disregard impossible values
+                        if state.attributes.get("device_class") == "temperature":
+                            if (
+                                float(supported_state) < -50
+                                or float(supported_state) > 100
+                            ):
+                                _LOGGER.debug(
+                                    "Temperature value out of range - disregarded: %s"
+                                    % supported_state
+                                )
+                                continue
+                        elif state.attributes.get("device_class") == "humidity":
+                            if (
+                                float(supported_state) < 0
+                                or float(supported_state) > 100
+                            ):
+                                _LOGGER.debug(
+                                    "Humidity value out of range - disregarded: %s"
+                                    % supported_state
+                                )
+                                continue
+                        elif state.attributes.get("device_class") == "illuminance":
+                            if (
+                                float(supported_state) < 0
+                                or float(supported_state) > 200000
+                            ):
+                                _LOGGER.debug(
+                                    "Illuminance value out of range - disregarded: %s"
+                                    % supported_state
+                                )
+                                continue
+                        elif state.attributes.get("device_class") == "moisture":
+                            if (
+                                float(supported_state) < 0
+                                or float(supported_state) > 100
+                            ):
+                                _LOGGER.debug(
+                                    "Moisture value out of range - disregarded: %s"
+                                    % supported_state
+                                )
+                                continue
+                        elif state.attributes.get("device_class") == "conductivity":
+                            if (
+                                float(supported_state) < 0
+                                or float(supported_state) > 3000
+                            ):
+                                _LOGGER.debug(
+                                    "Conductivity value out of range - disregarded: %s"
+                                    % supported_state
+                                )
+                                continue
+                        else:
+                            _LOGGER.debug(
+                                "Unsupported device_class - disregarded: %s"
+                                % state.attributes.get("device_class")
+                            )
+                            continue
+
                         # Add a state to TimeSeries
                         measurements[entry.original_device_class].insert(
-                            TsRecord(dt_util.as_local(state.last_updated), state.state)
+                            TsRecord(
+                                dt_util.as_local(state.last_updated), supported_state
+                            )
                         )
                         _LOGGER.debug(
                             "Added Time-Series: %s %s"
-                            % (dt_util.as_local(state.last_updated), state.state)
+                            % (dt_util.as_local(state.last_updated), supported_state)
                         )
 
         # Remove empty measurements
