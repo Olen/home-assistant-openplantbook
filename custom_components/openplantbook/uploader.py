@@ -390,7 +390,8 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
         if latest_data:
             days_since_upload = dt_util.parse_datetime(latest_data).astimezone(
-                dt.UTC) - dt_util.now(dt.UTC)
+                dt.UTC
+            ) - dt_util.now(dt.UTC)
             if (days_since_upload.days > 3) and dt_util.now(dt.UTC).weekday() == 4:
                 _LOGGER.warning(
                     "The last time plant sensors data was successfully uploaded %s days ago. This may indicate a "
