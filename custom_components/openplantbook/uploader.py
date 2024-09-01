@@ -33,6 +33,87 @@ UPLOAD_WAIT_AFTER_RESTART = timedelta(minutes=5)
 _LOGGER = logging.getLogger(__name__)
 
 
+# Take HASS state and verify if it is sane and supported by OPB and convert if necessary
+def get_supported_state_value(state) -> tuple:
+    def validate_measurement(supported_unit, value_range):
+        nonlocal state_error
+
+        if unit_of_measurement != supported_unit:
+            _LOGGER.debug(
+                "Unit '%s' of '%s' measurement is not supported. Its value '%s' disregarded"
+                % (unit_of_measurement, current_measurement, supported_state)
+            )
+            state_error = current_measurement
+
+        elif supported_state < value_range[0] or supported_state > value_range[1]:
+            _LOGGER.debug(
+                "Value '%s' of %s is out of range %s - disregarded"
+                % (supported_state, current_measurement, value_range)
+            )
+            state_error = current_measurement
+
+        return
+
+    current_measurement = state.attributes.get("device_class")
+    unit_of_measurement = state.attributes.get("unit_of_measurement")
+    state_error = None
+
+    try:
+        supported_state = round(float(state.state))
+    except:
+        _LOGGER.debug(
+            "State is not a number - disregarded: state_value: '%s', state: %s"
+            % (state.state, state)
+        )
+        return None, current_measurement
+
+    # temperature
+    if current_measurement == "temperature":
+
+        # Convert Fahrenheit to Celsius
+        if unit_of_measurement == "°F":
+            supported_state = round((supported_state - 32) * 5 / 9)
+            _LOGGER.debug(
+                "Temperature converted from %s °F to %s °C"
+                % (state.state, supported_state)
+            )
+            unit_of_measurement = "°C"
+
+        # Convert Kelvin to Celsius
+        elif unit_of_measurement == "K":
+            supported_state = round(supported_state - 273.15)
+            _LOGGER.debug(
+                "Temperature converted from %s °K to %s °C"
+                % (state.state, supported_state)
+            )
+            unit_of_measurement = "°C"
+
+        validate_measurement("°C", (-50, 70))
+
+    # humidity
+    elif current_measurement == "humidity":
+        validate_measurement("%", (0, 100))
+
+    # illuminance
+    elif current_measurement == "illuminance":
+        validate_measurement("lx", (0, 200000))
+
+    # moisture
+    elif current_measurement == "moisture":
+        validate_measurement("%", (0, 100))
+
+    # conductivity
+    elif current_measurement == "conductivity":
+        validate_measurement("µS/cm", (0, 3000))
+
+    # unsupported device_class
+    else:
+        _LOGGER.debug("Unsupported device_class: %s" % state)
+        state_error = "device_class"
+
+    return supported_state, state_error
+
+
 async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
     if DOMAIN not in hass.data:
         raise OpenPlantbookException("no data found for domain %s", DOMAIN)
@@ -235,8 +316,12 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                 )
 
                 _LOGGER.debug("Parsing states of: %s " % entry)
+
+                measurement_errors = []
+
                 # Convert HASS state to JTS time_series excluding 'unknown' states
                 for entity_states in sensor_entity_states.values():
+
                     for state in entity_states:
                         # check if it is meaningful state
                         if state.state == "unknown" or state.state == "unavailable":
@@ -248,93 +333,41 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                             # This is last state without updates - skip it
                             continue
 
-                        try:
-                            float(state.state)
-                        except:
-                            continue
+                        # Get supported state value
+                        supported_state_value, state_error = get_supported_state_value(
+                            state
+                        )
 
-                        # get state and round to integer
-                        # Convert Fahrenheit to Celsius
-                        if (
-                            state.attributes.get("unit_of_measurement") == "°F"
-                            and state.attributes.get("device_class") == "temperature"
-                        ):
-                            supported_state = round((float(state.state) - 32) * 5 / 9)
-                            _LOGGER.debug(
-                                "Temperature converted from %s F to %s C"
-                                % (state, supported_state)
-                            )
-                        else:
-                            supported_state = round(float(state.state))
-
-                        # disregard impossible values
-                        if state.attributes.get("device_class") == "temperature":
-                            if (
-                                float(supported_state) < -50
-                                or float(supported_state) > 100
-                            ):
-                                _LOGGER.debug(
-                                    "Temperature value out of range - disregarded: %s"
-                                    % supported_state
-                                )
-                                continue
-                        elif state.attributes.get("device_class") == "humidity":
-                            if (
-                                float(supported_state) < 0
-                                or float(supported_state) > 100
-                            ):
-                                _LOGGER.debug(
-                                    "Humidity value out of range - disregarded: %s"
-                                    % supported_state
-                                )
-                                continue
-                        elif state.attributes.get("device_class") == "illuminance":
-                            if (
-                                float(supported_state) < 0
-                                or float(supported_state) > 200000
-                            ):
-                                _LOGGER.debug(
-                                    "Illuminance value out of range - disregarded: %s"
-                                    % supported_state
-                                )
-                                continue
-                        elif state.attributes.get("device_class") == "moisture":
-                            if (
-                                float(supported_state) < 0
-                                or float(supported_state) > 100
-                            ):
-                                _LOGGER.debug(
-                                    "Moisture value out of range - disregarded: %s"
-                                    % supported_state
-                                )
-                                continue
-                        elif state.attributes.get("device_class") == "conductivity":
-                            if (
-                                float(supported_state) < 0
-                                or float(supported_state) > 3000
-                            ):
-                                _LOGGER.debug(
-                                    "Conductivity value out of range - disregarded: %s"
-                                    % supported_state
-                                )
-                                continue
-                        else:
-                            _LOGGER.debug(
-                                "Unsupported device_class - disregarded: %s"
-                                % state.attributes.get("device_class")
-                            )
+                        if state_error:
+                            # _LOGGER.debug(
+                            #     "State value error detected: state_error - %s, state - %s"
+                            #     % (state_error, state)
+                            # )
+                            if state_error not in measurement_errors:
+                                measurement_errors.append(state_error)
                             continue
 
                         # Add a state to TimeSeries
                         measurements[entry.original_device_class].insert(
                             TsRecord(
-                                dt_util.as_local(state.last_updated), supported_state
+                                dt_util.as_local(state.last_updated),
+                                supported_state_value,
                             )
                         )
                         _LOGGER.debug(
-                            "Added Time-Series: %s %s"
-                            % (dt_util.as_local(state.last_updated), supported_state)
+                            "Added Time-Series Record: %s %s"
+                            % (
+                                dt_util.as_local(state.last_updated),
+                                supported_state_value,
+                            )
                         )
+
+                if measurement_errors:
+                    _LOGGER.info(
+                        "Plant (Entity) %s has errors in measurements: %s. The invalid values were disregarded. You may"
+                        "enable debug logging for more information."
+                        % (entry, measurement_errors)
+                    )
 
         # Remove empty measurements
         for m in measurements.values():
@@ -342,7 +375,8 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                 jts_doc.addSeries(m)
 
     if len(jts_doc) > 0:
-        _LOGGER.debug("An upload payload: %s" % jts_doc.toJSONString())
+        # _LOGGER.debug("Payload to upload: %s" % jts_doc.toJSONString())
+        _LOGGER.debug("Calling OPB SDK to upload data")
         res = await hass.data[DOMAIN][ATTR_API].async_plant_data_upload(
             jts_doc, dry_run=False
         )
@@ -352,7 +386,29 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         )
         return {"result": res}
     else:
-        _LOGGER.info("Nothing to upload")
+        _LOGGER.info("Found no sensors data to upload")
+
+        if latest_data:
+            days_since_upload = dt_util.parse_datetime(latest_data).astimezone(
+                dt.UTC) - dt_util.now(dt.UTC)
+            if (days_since_upload.days > 3) and dt_util.now(dt.UTC).weekday() == 4:
+                _LOGGER.warning(
+                    "The last time plant sensors data was successfully uploaded %s days ago. This may indicate a "
+                    "problem with Plants sensors or this integration. Please enable OpenPlantbook integration's debug "
+                    "logging for more information. "
+                    "You may report this issue via GitHub or support@plantbook.io attaching the debug log if you "
+                    "believe it is a bug." % days_since_upload.days
+                )
+        else:
+            # no latest_data in the OPB API indicates that the data has never been uploaded successfully for the plant
+            if dt_util.now(dt.UTC).weekday() == 6:
+                _LOGGER.warning(
+                    "Plants sensors data has never been uploaded successfully. This may indicate a problem with the sensors "
+                    "or this integration. Please enable OpenPlantbook integration's debug logging for more information. "
+                    "You may report this issue via GitHub or support@plantbook.io attaching the debug log if you "
+                    "believe it is a bug."
+                )
+
         return None
 
 
