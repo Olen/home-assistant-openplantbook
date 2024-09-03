@@ -16,6 +16,7 @@ from homeassistant.helpers import device_registry
 from homeassistant.helpers import entity_registry
 from homeassistant.helpers.event import async_track_time_interval, async_call_later
 from homeassistant.util import dt
+from homeassistant.const import UnitOfTemperature, UnitOfConductivity, LIGHT_LUX, PERCENTAGE
 from .plantbook_exception import OpenPlantbookException
 from .const import (
     DOMAIN,
@@ -71,40 +72,40 @@ def get_supported_state_value(state) -> tuple:
     if current_measurement == "temperature":
 
         # Convert Fahrenheit to Celsius
-        if unit_of_measurement == "°F":
+        if unit_of_measurement == UnitOfTemperature.FAHRENHEIT:
             supported_state = round((supported_state - 32) * 5 / 9)
             _LOGGER.debug(
                 "Temperature converted from %s °F to %s °C"
                 % (state.state, supported_state)
             )
-            unit_of_measurement = "°C"
+            unit_of_measurement = UnitOfTemperature.CELSIUS
 
         # Convert Kelvin to Celsius
-        elif unit_of_measurement == "K":
+        elif unit_of_measurement == UnitOfTemperature.KELVIN:
             supported_state = round(supported_state - 273.15)
             _LOGGER.debug(
-                "Temperature converted from %s °K to %s °C"
+                "Temperature converted from %s K to %s °C"
                 % (state.state, supported_state)
             )
-            unit_of_measurement = "°C"
+            unit_of_measurement = UnitOfTemperature.CELSIUS
 
         validate_measurement("°C", (-50, 70))
 
     # humidity
     elif current_measurement == "humidity":
-        validate_measurement("%", (0, 100))
+        validate_measurement(PERCENTAGE, (0, 100))
 
     # illuminance
     elif current_measurement == "illuminance":
-        validate_measurement("lx", (0, 200000))
+        validate_measurement(LIGHT_LUX, (0, 200000))
 
     # moisture
     elif current_measurement == "moisture":
-        validate_measurement("%", (0, 100))
+        validate_measurement(PERCENTAGE, (0, 100))
 
     # conductivity
     elif current_measurement == "conductivity":
-        validate_measurement("µS/cm", (0, 3000))
+        validate_measurement(UnitOfConductivity.MICROSIEMENS, (0, 3000))
 
     # unsupported device_class
     else:
