@@ -381,7 +381,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                 jts_doc.addSeries(m)
 
     if len(jts_doc) > 0:
-        # _LOGGER.debug("Payload to upload: %s" % jts_doc.toJSONString())
+        _LOGGER.debug("Payload to upload: %s" % jts_doc.toJSONString())
         _LOGGER.debug("Calling OPB SDK to upload data")
         res = await hass.data[DOMAIN][ATTR_API].async_plant_data_upload(
             jts_doc, dry_run=False

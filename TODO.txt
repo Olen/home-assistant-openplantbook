@@ -1,4 +1,5 @@
 # TODO N: Create service to upload plants data for last x days
+# TODO N: Remove milliseconds from JTS timestamps as such precision is not needed
 # TODO V: Notify existing installations "please consider enabling sensor sharing" OR Prompt for sensor sharing on new installations
 # TODO ?: OptionsFlow make separate step for uploader.
 # TODO ?: UI option to disable location detection
