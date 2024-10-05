@@ -273,7 +273,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         if latest_data:
             query_period_start_timestamp = dt_util.parse_datetime(
                 latest_data
-            ).astimezone(dt.UTC)
+            ).astimezone(dt.UTC) + timedelta(seconds=1)
 
             # If last upload was more than 7 days ago then only take last 7 days
             if query_period_end_timestamp - query_period_start_timestamp > timedelta(
@@ -395,7 +395,9 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         _LOGGER.info("Found no sensors data to upload")
 
         if latest_data:
-            days_since_upload = dt_util.now(dt.UTC) - dt_util.parse_datetime(latest_data).astimezone(dt.UTC)
+            days_since_upload = dt_util.now(dt.UTC) - dt_util.parse_datetime(
+                latest_data
+            ).astimezone(dt.UTC)
             if (days_since_upload.days > 3) and dt_util.now(dt.UTC).weekday() == 4:
                 _LOGGER.warning(
                     "The last time plant sensors data was successfully uploaded %s days ago. This may indicate a "
