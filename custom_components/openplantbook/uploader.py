@@ -110,7 +110,7 @@ def get_supported_state_value(state) -> tuple:
 
     # conductivity
     elif current_measurement == "conductivity":
-        validate_measurement(UnitOfConductivity.MICROSIEMENS, (0, 3000))
+        validate_measurement(UnitOfConductivity.MICROSIEMENS_PER_CM, (0, 3000))
 
     # unsupported device_class
     else:
