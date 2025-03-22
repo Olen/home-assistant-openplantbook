@@ -19,5 +19,5 @@
     "json-timeseries==0.1.7",
     "openplantbook-sdk==0.4.7"
   ],
-  "version": "1.3.0"
+  "version": "1.3.1"
 }
