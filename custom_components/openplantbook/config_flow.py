@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
@@ -186,10 +186,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             return True
         download_path = user_input.get(FLOW_DOWNLOAD_PATH)
         # If path is relative, we assume relative to Home Assistant config dir
-        if not os.path.isabs(download_path):
+        if not Path.is_absolute(download_path):
             download_path = self.hass.config.path(download_path)
 
-        if not os.path.isdir(download_path):
+        if not Path.is_dir(download_path):
             _LOGGER.error(
                 "Download path %s is invalid",
                 download_path,

@@ -2,10 +2,10 @@
 
 import asyncio
 import logging
-import os
 import re
 import urllib.parse
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import async_timeout
 import voluptuous as vol
@@ -147,16 +147,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     ATTR_IMAGE,
                 ):
                     filename = slugify(
-                        urllib.parse.unquote(os.path.basename(plant_data[ATTR_IMAGE])),
+                        urllib.parse.unquote(Path.name(plant_data[ATTR_IMAGE])),
                         separator=" ",
                     ).replace(" jpg", ".jpg")
                     raise_if_invalid_filename(filename)
                     download_path = entry.options.get(FLOW_DOWNLOAD_PATH)
-                    if not os.path.isabs(download_path):
+                    if not Path.is_absolute(download_path):
                         download_path = hass.config.path(download_path)
 
-                    final_path = os.path.join(download_path, filename)
-                    if os.path.isfile(final_path):
+                    final_path = Path.join(download_path / filename)
+                    if Path.is_file(final_path):
                         _LOGGER.warning("Filename %s already exists", final_path)
                         downloaded_file = final_path
                     else:
@@ -260,7 +260,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             url,
             download_to,
         )
-        if os.path.isfile(download_to):
+        if Path.is_file(download_to):
             _LOGGER.warning(
                 "File %s already exists. Will not download again", download_to,
             )
@@ -276,7 +276,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 return False
 
         data = await resp.read()
-        with open(download_to, "wb") as fil:
+        with Path.open(download_to, "wb") as fil:
             fil.write(data)
 
         _LOGGER.debug("Downloading of %s done", url)
