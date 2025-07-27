@@ -328,7 +328,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
                     for state in entity_states:
                         # check if it is meaningful state
-                        if state.state == "unknown" or state.state == "unavailable":
+                        if state.state in {"unknown", "unavailable"}:
                             continue
                         # check if we are getting the last value of the state which was not updated over query period
                         if dt_util.as_utc(state.last_updated) == dt_util.as_utc(
