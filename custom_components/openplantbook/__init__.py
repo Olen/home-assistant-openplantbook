@@ -31,7 +31,6 @@ from .const import (
     ATTR_API,
     ATTR_HOURS,
     ATTR_IMAGE,
-    ATTR_PLANT_INSTANCE,
     ATTR_SPECIES,
     CACHE_TIME,
     DOMAIN,
@@ -44,7 +43,6 @@ from .const import (
     OPB_CURRENT_INFO_MESSAGE,
     OPB_DISPLAY_PID,
     OPB_INFO_MESSAGE,
-    OPB_MEASUREMENTS_TO_UPLOAD,
     OPB_PID,
     OPB_SERVICE_CLEAN_CACHE,
     OPB_SERVICE_GET,
@@ -53,8 +51,6 @@ from .const import (
 )
 from .plantbook_exception import OpenPlantbookException
 from .uploader import (
-    UPLOAD_TIME_INTERVAL,
-    UPLOAD_WAIT_AFTER_RESTART,
     async_setup_upload_schedule,
     plant_data_upload,
 )
