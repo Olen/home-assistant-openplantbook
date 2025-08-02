@@ -120,7 +120,8 @@ def get_supported_state_value(state) -> tuple:
 
 async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
     if DOMAIN not in hass.data:
-        raise OpenPlantbookException("no data found for domain %s", DOMAIN)
+        msg=f"no data found for domain {DOMAIN}"
+        raise OpenPlantbookException(msg)
     # _device_id = call.data.get(ATTR_PLANT_INSTANCE)
 
     if call:

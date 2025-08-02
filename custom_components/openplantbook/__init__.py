@@ -108,13 +108,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     async def get_plant(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
-            _LOGGER.error("no data found for domain %s", DOMAIN)
-            raise OpenPlantbookException("no data found for domain %s", DOMAIN)
+            msg=f"no data found for domain {DOMAIN}"
+            _LOGGER.error(msg)
+            raise OpenPlantbookException(msg)
         species = call.data.get(ATTR_SPECIES)
         if species is None:
-            raise OpenPlantbookException(
-                "invalid service call, required attribute %s missing", ATTR_SPECIES,
-            )
+            msg=f"invalid service call, required attribute {ATTR_SPECIES} missing"
+            raise OpenPlantbookException( msg )
 
         # Here we try to ensure that we only run one API request for each species
         # The first process creates an empty dict, and access the API
@@ -191,9 +191,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 wait = wait + 1
                 if wait == 10:
                     _LOGGER.error("Giving up waiting for OpenPlantBook")
-                    raise OpenPlantbookException(
-                        "another request is still in progress, but timed out",
-                    )
+                    msg="another request is still in progress, but timed out"
+                    raise OpenPlantbookException( msg )
                 await asyncio.sleep(1)
             _LOGGER.debug("The other process completed successfully")
             return hass.data[DOMAIN][ATTR_SPECIES][species]
@@ -204,18 +203,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             _LOGGER.debug("We already have cached data for %s", species)
             return hass.data[DOMAIN][ATTR_SPECIES][species]
         del hass.data[DOMAIN][ATTR_SPECIES][species]
-        raise OpenPlantbookException(
-            "an unknown error occurred while fetching data for species %s", species,
-        )
+        msg=f"an unknown error occurred while fetching data for species {species}"
+        raise OpenPlantbookException( msg )
 
     async def search_plantbook(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
-            raise OpenPlantbookException("no data found for domain %s", DOMAIN)
+            msg=f"no data found for domain {DOMAIN}"
+            raise OpenPlantbookException( msg )
         alias = call.data.get(ATTR_ALIAS)
         if alias is None:
-            raise OpenPlantbookException(
-                "invalid service call, required attribute %s missing", alias,
-            )
+            msg=f"invalid service call, required attribute {alias} missing"
+            raise OpenPlantbookException( msg )
 
         _LOGGER.info("Searching for %s", alias)
         try:
