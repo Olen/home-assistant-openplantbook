@@ -332,7 +332,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 
 async def config_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle component's options update"""
+    """Handle component's options update."""
     # await hass.config_entries.async_reload(entry.entry_id)
 
     _LOGGER.debug("Options update: %s, %s", entry.entry_id, entry.options)
