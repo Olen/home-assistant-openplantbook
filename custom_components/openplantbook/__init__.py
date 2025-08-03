@@ -5,7 +5,7 @@ import logging
 import os
 import re
 import urllib.parse
-from datetime import datetime, timedelta, timezone
+import datetime
 
 import async_timeout
 import voluptuous as vol
