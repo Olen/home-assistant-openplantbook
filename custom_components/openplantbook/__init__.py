@@ -5,7 +5,7 @@ import logging
 import os
 import re
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import async_timeout
 import voluptuous as vol
@@ -134,7 +134,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
             if plant_data:
                 _LOGGER.debug("Got data for %s", species)
-                plant_data[OPB_ATTR_TIMESTAMP] = datetime.now().isoformat()
+                plant_data[OPB_ATTR_TIMESTAMP] = datetime.now(tz=datatime.UTC).isoformat()
                 hass.data[DOMAIN][ATTR_SPECIES][species] = plant_data
                 entity_id = async_generate_entity_id(
                     f"{DOMAIN}.{{}}", plant_data[OPB_PID], current_ids={},
@@ -192,7 +192,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 await asyncio.sleep(1)
             _LOGGER.debug("The other process completed successfully")
             return hass.data[DOMAIN][ATTR_SPECIES][species]
-        if datetime.now() < datetime.fromisoformat(
+        if datetime.now(tz=datatime.UTC) < datetime.fromisoformat(
             hass.data[DOMAIN][ATTR_SPECIES][species][OPB_ATTR_TIMESTAMP],
         ) + timedelta(hours=CACHE_TIME):
             # We already have the data we need, so let's just return
@@ -238,7 +238,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         if ATTR_SPECIES in hass.data[DOMAIN]:
             for species in list(hass.data[DOMAIN][ATTR_SPECIES]):
                 value = hass.data[DOMAIN][ATTR_SPECIES][species]
-                if datetime.now() > datetime.fromisoformat(
+                if datetime.now(tz=datatime.UTC) > datetime.fromisoformat(
                     value[OPB_ATTR_TIMESTAMP],
                 ) + timedelta(hours=hours):
                     _LOGGER.debug("Removing %s from cache", species)
