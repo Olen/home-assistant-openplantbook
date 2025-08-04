@@ -50,7 +50,8 @@ async def validate_input(hass: core.HomeAssistant, data):
     # Check if values are not empty
     try:
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
-            data[CONF_CLIENT_ID], data[CONF_CLIENT_SECRET],
+            data[CONF_CLIENT_ID],
+            data[CONF_CLIENT_SECRET],
         )
         res = await hass.data[DOMAIN][ATTR_API]._async_get_token()
         # TODO 4: Error messages for "unable to connect" and "creds are not valid" not working well.
@@ -103,7 +104,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_upload()
 
         return self.async_show_form(
-            step_id="user", data_schema=DATA_SCHEMA, errors=errors,
+            step_id="user",
+            data_schema=DATA_SCHEMA,
+            errors=errors,
         )
 
     async def async_step_upload(self, user_input=None):
@@ -112,11 +115,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # self.options=user_input
             return self.async_create_entry(
-                title="Openplantbook API", data=self.data, options=user_input,
+                title="Openplantbook API",
+                data=self.data,
+                options=user_input,
             )
 
         return self.async_show_form(
-            step_id="upload", data_schema=UPLOAD_SCHEMA, errors=errors,
+            step_id="upload",
+            data_schema=UPLOAD_SCHEMA,
+            errors=errors,
         )
 
 
@@ -133,7 +140,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         self.errors = {}
 
     async def async_step_init(
-        self, user_input: dict[str, Any] | None = None,
+        self,
+        user_input: dict[str, Any] | None = None,
     ) -> data_entry_flow.FlowResult:
         """Manage the options."""
         self.errors = {}
@@ -142,10 +150,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         # Uploader settings
         upload_sensors = self.entry.options.get(FLOW_UPLOAD_DATA, False)
         location_country = self.entry.options.get(
-            FLOW_UPLOAD_HASS_LOCATION_COUNTRY, False,
+            FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
+            False,
         )
         location_coordinates = self.entry.options.get(
-            FLOW_UPLOAD_HASS_LOCATION_COORD, False,
+            FLOW_UPLOAD_HASS_LOCATION_COORD,
+            False,
         )
 
         if user_input is not None:
@@ -164,17 +174,21 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         data_schema = {
             vol.Optional(FLOW_UPLOAD_DATA, default=upload_sensors): cv.boolean,
             vol.Optional(
-                FLOW_UPLOAD_HASS_LOCATION_COUNTRY, default=location_country,
+                FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
+                default=location_country,
             ): cv.boolean,
             vol.Optional(
-                FLOW_UPLOAD_HASS_LOCATION_COORD, default=location_coordinates,
+                FLOW_UPLOAD_HASS_LOCATION_COORD,
+                default=location_coordinates,
             ): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_IMAGES, default=download_images): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_PATH, default=download_path): cv.string,
         }
 
         return self.async_show_form(
-            step_id="init", data_schema=vol.Schema(data_schema), errors=self.errors,
+            step_id="init",
+            data_schema=vol.Schema(data_schema),
+            errors=self.errors,
         )
 
     async def validate_input(self, user_input):
