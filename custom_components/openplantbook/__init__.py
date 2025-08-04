@@ -71,7 +71,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     if ATTR_API not in hass.data[DOMAIN]:
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
-            entry.data.get(CONF_CLIENT_ID), entry.data.get(CONF_CLIENT_SECRET),
+            entry.data.get(CONF_CLIENT_ID),
+            entry.data.get(CONF_CLIENT_SECRET),
         )
 
     if ATTR_SPECIES not in hass.data[DOMAIN]:
@@ -80,11 +81,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Display one-off notification about new functionality after upgrade
     if not entry.data.get(OPB_INFO_MESSAGE):
         hass.config_entries.async_update_entry(
-            entry, data={**entry.data, OPB_INFO_MESSAGE: OPB_CURRENT_INFO_MESSAGE},
+            entry,
+            data={**entry.data, OPB_INFO_MESSAGE: OPB_CURRENT_INFO_MESSAGE},
         )
         if not entry.options.get(FLOW_UPLOAD_DATA):
             _LOGGER.debug(
-                "Trigger after upgrade notification: %s", OPB_CURRENT_INFO_MESSAGE,
+                "Trigger after upgrade notification: %s",
+                OPB_CURRENT_INFO_MESSAGE,
             )
             create_notification(
                 hass=hass,
@@ -104,13 +107,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     async def get_plant(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
-            msg=f"no data found for domain {DOMAIN}"
+            msg = f"no data found for domain {DOMAIN}"
             _LOGGER.error(msg)
             raise OpenPlantbookException(msg)
         species = call.data.get(ATTR_SPECIES)
         if species is None:
-            msg=f"invalid service call, required attribute {ATTR_SPECIES} missing"
-            raise OpenPlantbookException( msg )
+            msg = f"invalid service call, required attribute {ATTR_SPECIES} missing"
+            raise OpenPlantbookException(msg)
 
         # Here we try to ensure that we only run one API request for each species
         # The first process creates an empty dict, and access the API
@@ -137,7 +140,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 plant_data[OPB_ATTR_TIMESTAMP] = datetime.now().isoformat()
                 hass.data[DOMAIN][ATTR_SPECIES][species] = plant_data
                 entity_id = async_generate_entity_id(
-                    f"{DOMAIN}.{{}}", plant_data[OPB_PID], current_ids={},
+                    f"{DOMAIN}.{{}}",
+                    plant_data[OPB_PID],
+                    current_ids={},
                 )
                 if entry.options.get(FLOW_DOWNLOAD_IMAGES) and plant_data.get(
                     ATTR_IMAGE,
@@ -157,16 +162,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                         downloaded_file = final_path
                     else:
                         downloaded_file = await async_download_image(
-                            plant_data.get(ATTR_IMAGE), final_path,
+                            plant_data.get(ATTR_IMAGE),
+                            final_path,
                         )
                     if downloaded_file and "www/" in downloaded_file:
                         plant_data[ATTR_IMAGE] = re.sub(
-                            "^.*www/", "/local/", downloaded_file,
+                            "^.*www/",
+                            "/local/",
+                            downloaded_file,
                         )
 
                 _LOGGER.debug("data stored for %s: %s", species, plant_data)
                 hass.states.async_set(
-                    entity_id, plant_data[OPB_DISPLAY_PID], plant_data,
+                    entity_id,
+                    plant_data[OPB_DISPLAY_PID],
+                    plant_data,
                 )
                 return plant_data
             del hass.data[DOMAIN][ATTR_SPECIES][species]
@@ -187,8 +197,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 wait = wait + 1
                 if wait == 10:
                     _LOGGER.error("Giving up waiting for OpenPlantBook")
-                    msg="another request is still in progress, but timed out"
-                    raise OpenPlantbookException( msg )
+                    msg = "another request is still in progress, but timed out"
+                    raise OpenPlantbookException(msg)
                 await asyncio.sleep(1)
             _LOGGER.debug("The other process completed successfully")
             return hass.data[DOMAIN][ATTR_SPECIES][species]
@@ -199,17 +209,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             _LOGGER.debug("We already have cached data for %s", species)
             return hass.data[DOMAIN][ATTR_SPECIES][species]
         del hass.data[DOMAIN][ATTR_SPECIES][species]
-        msg=f"an unknown error occurred while fetching data for species {species}"
-        raise OpenPlantbookException( msg )
+        msg = f"an unknown error occurred while fetching data for species {species}"
+        raise OpenPlantbookException(msg)
 
     async def search_plantbook(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
-            msg=f"no data found for domain {DOMAIN}"
-            raise OpenPlantbookException( msg )
+            msg = f"no data found for domain {DOMAIN}"
+            raise OpenPlantbookException(msg)
         alias = call.data.get(ATTR_ALIAS)
         if alias is None:
-            msg=f"invalid service call, required attribute {alias} missing"
-            raise OpenPlantbookException( msg )
+            msg = f"invalid service call, required attribute {alias} missing"
+            raise OpenPlantbookException(msg)
 
         _LOGGER.info("Searching for %s", alias)
         try:
@@ -243,7 +253,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 ) + timedelta(hours=hours):
                     _LOGGER.debug("Removing %s from cache", species)
                     entity_id = async_generate_entity_id(
-                        f"{DOMAIN}.{{}}", value[OPB_PID], current_ids={},
+                        f"{DOMAIN}.{{}}",
+                        value[OPB_PID],
+                        current_ids={},
                     )
                     hass.states.async_remove(entity_id)
                     hass.data[DOMAIN][ATTR_SPECIES].pop(species)
@@ -256,7 +268,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         )
         if os.path.isfile(download_to):
             _LOGGER.warning(
-                "File %s already exists. Will not download again", download_to,
+                "File %s already exists. Will not download again",
+                download_to,
             )
             return download_to
         websession = async_get_clientsession(hass)
@@ -265,7 +278,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             resp = await websession.get(url)
             if resp.status != 200:
                 _LOGGER.warning(
-                    "Downloading '%s' failed, status_code=%d", url, resp.status,
+                    "Downloading '%s' failed, status_code=%d",
+                    url,
+                    resp.status,
                 )
                 return False
 
@@ -282,13 +297,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     entry.async_on_unload(entry.add_update_listener(config_update_listener))
 
     hass.services.async_register(
-        DOMAIN, OPB_SERVICE_SEARCH, search_plantbook, None, SupportsResponse.OPTIONAL,
+        DOMAIN,
+        OPB_SERVICE_SEARCH,
+        search_plantbook,
+        None,
+        SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
-        DOMAIN, OPB_SERVICE_GET, get_plant, None, SupportsResponse.OPTIONAL,
+        DOMAIN,
+        OPB_SERVICE_GET,
+        get_plant,
+        None,
+        SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(
-        DOMAIN, OPB_SERVICE_CLEAN_CACHE, clean_cache, None, SupportsResponse.NONE,
+        DOMAIN,
+        OPB_SERVICE_CLEAN_CACHE,
+        clean_cache,
+        None,
+        SupportsResponse.NONE,
     )
     hass.services.async_register(
         DOMAIN,
