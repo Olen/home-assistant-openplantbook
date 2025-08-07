@@ -215,7 +215,9 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                             opb_pid = search_res["results"][0]["pid"]
                             reg_map[plant_instance_id] = opb_pid
 
-                            res = await hass.data[DOMAIN][ATTR_API].async_plant_instance_register(
+                            res = await hass.data[DOMAIN][
+                                ATTR_API
+                            ].async_plant_instance_register(
                                 sensor_pid_map=reg_map,
                                 location_country=location.get("country"),
                                 location_lon=location.get("lon"),
@@ -298,7 +300,10 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         # Go through sensors entries
         for entry in plant_sensors_entries:
             # process supported measurements of the sensor
-            if entry.domain == "sensor" and entry.original_device_class in OPB_MEASUREMENTS_TO_UPLOAD:
+            if (
+                entry.domain == "sensor"
+                and entry.original_device_class in OPB_MEASUREMENTS_TO_UPLOAD
+            ):
                 # Get sensors states (history) over the period of time
                 sensor_entity_states = await get_instance(hass).async_add_executor_job(
                     get_significant_states,
