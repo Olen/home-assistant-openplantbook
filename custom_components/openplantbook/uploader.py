@@ -69,7 +69,6 @@ def get_supported_state_value(state) -> tuple:
 
     # temperature
     if current_measurement == "temperature":
-
         # Convert Fahrenheit to Celsius
         if unit_of_measurement == UnitOfTemperature.FAHRENHEIT:
             supported_state = round((supported_state - 32) * 5 / 9)
@@ -199,12 +198,10 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
         # OPB ValidationFailure
         except ValidationError as ex:
-
             caught_exception = ex
             opb_errors = ex.errors
 
             if opb_errors[0]["code"] == "invalid_pid":
-
                 # workaround for case when HASS original_species is set to DISPLAY_PID rather than PID attempt to find
                 # the plant using PID as DISPLAY_PID and if found only 1 plant and DISPLAY_PID match they retry
                 try:
@@ -213,15 +210,12 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                     )
 
                     if search_res["count"] == 1:
-
                         if opb_pid == search_res["results"][0]["display_pid"]:
                             opb_disp_pid = opb_pid
                             opb_pid = search_res["results"][0]["pid"]
                             reg_map[plant_instance_id] = opb_pid
 
-                            res = await hass.data[DOMAIN][
-                                ATTR_API
-                            ].async_plant_instance_register(
+                            res = await hass.data[DOMAIN][ATTR_API].async_plant_instance_register(
                                 sensor_pid_map=reg_map,
                                 location_country=location.get("country"),
                                 location_lon=location.get("lon"),
@@ -304,10 +298,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
         # Go through sensors entries
         for entry in plant_sensors_entries:
             # process supported measurements of the sensor
-            if (
-                entry.domain == "sensor"
-                and entry.original_device_class in OPB_MEASUREMENTS_TO_UPLOAD
-            ):
+            if entry.domain == "sensor" and entry.original_device_class in OPB_MEASUREMENTS_TO_UPLOAD:
                 # Get sensors states (history) over the period of time
                 sensor_entity_states = await get_instance(hass).async_add_executor_job(
                     get_significant_states,
@@ -324,7 +315,6 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
                 # Convert HASS state to JTS time_series excluding 'unknown' states
                 for entity_states in sensor_entity_states.values():
-
                     for state in entity_states:
                         # check if it is meaningful state
                         if state.state in {"unknown", "unavailable"}:
@@ -380,7 +370,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
             jts_doc,
             dry_run=False,
         )
-        msg = f"Uploading data from {len(jts_doc)} sensors was {"successful" if res else "failure"}"
+        msg = f"Uploading data from {len(jts_doc)} sensors was {'successful' if res else 'failure'}"
         _LOGGER.info(msg)
         return {"result": res}
     _LOGGER.info("Found no sensors data to upload")
