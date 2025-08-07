@@ -30,7 +30,7 @@ FLOW_DOWNLOAD_IMAGES: Final[str] = "download_images"
 FLOW_DOWNLOAD_PATH: Final[str] = "download_path"
 DEFAULT_IMAGE_PATH: Final[str] = "/config/www/images/plants/"
 
-OPB_MEASUREMENTS_TO_UPLOAD = [
+OPB_MEASUREMENTS_TO_UPLOAD: Final[list[str]] = [
     "moisture",
     "illuminance",
     "conductivity",
