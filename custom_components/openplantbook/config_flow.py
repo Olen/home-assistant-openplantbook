@@ -109,7 +109,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_upload(self, user_input=None):
+    async def async_step_upload(self, user_input=None) -> None:
         """Handle the upload step. Store it as ConfigEntry Options."""
         errors = {}
         if user_input is not None:
@@ -191,7 +191,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             errors=self.errors,
         )
 
-    async def validate_input(self, user_input):
+    async def validate_input(self, user_input) -> bool:
         """Validate input."""
         # If we dont want to download, dont worry about the path
         if not user_input.get(FLOW_DOWNLOAD_IMAGES):
