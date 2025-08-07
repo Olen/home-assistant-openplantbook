@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Optional, Dict
+from typing import Any
 
 import voluptuous as vol
-from aiohttp import ServerTimeoutError
-from openplantbook_sdk import MissingClientIdOrSecret
-
 from homeassistant import config_entries, core, data_entry_flow
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.helpers import config_validation as cv
+from openplantbook_sdk import MissingClientIdOrSecret
 
 from . import OpenPlantBookApi
 from .const import (
@@ -22,10 +20,10 @@ from .const import (
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
     FLOW_UPLOAD_DATA,
-    FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
     FLOW_UPLOAD_HASS_LOCATION_COORD,
-    OPB_INFO_MESSAGE,
+    FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
     OPB_CURRENT_INFO_MESSAGE,
+    OPB_INFO_MESSAGE,
 )
 
 TITLE = "title"
@@ -38,7 +36,7 @@ UPLOAD_SCHEMA = vol.Schema(
         FLOW_UPLOAD_DATA: bool,
         FLOW_UPLOAD_HASS_LOCATION_COUNTRY: bool,
         FLOW_UPLOAD_HASS_LOCATION_COORD: bool,
-    }
+    },
 )
 
 
@@ -47,17 +45,17 @@ async def validate_input(hass: core.HomeAssistant, data):
 
     Data has the keys from DATA_SCHEMA with values provided by the user.
     """
-
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
     # Check if values are not empty
     try:
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
-            data[CONF_CLIENT_ID], data[CONF_CLIENT_SECRET]
+            data[CONF_CLIENT_ID],
+            data[CONF_CLIENT_SECRET],
         )
         res = await hass.data[DOMAIN][ATTR_API]._async_get_token()
         # TODO 4: Error messages for "unable to connect" and "creds are not valid" not working well.
-    except PermissionError as ex:
+    except PermissionError:
         raise ValueError
     # If any of credentials are empty
     except (KeyError, MissingClientIdOrSecret) as ex:
@@ -76,7 +74,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_UNKNOWN
 
-    data: Optional[Dict[str, Any]]
+    data: dict[str, Any] | None
 
     @staticmethod
     @core.callback
@@ -92,9 +90,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 await validate_input(self.hass, user_input)
-            except ValueError as ex:
+            except ValueError:
                 errors[CONF_CLIENT_ID] = "invalid_auth"
-            except Exception as ex:
+            except Exception:
                 errors["base"] = "cannot_connect"
 
             if not errors:
@@ -106,28 +104,31 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_upload()
 
         return self.async_show_form(
-            step_id="user", data_schema=DATA_SCHEMA, errors=errors
+            step_id="user",
+            data_schema=DATA_SCHEMA,
+            errors=errors,
         )
 
-    async def async_step_upload(self, user_input=None):
-        """
-        Handle the upload step.
-        Store it as ConfigEntry Options
-        """
+    async def async_step_upload(self, user_input=None) -> None:
+        """Handle the upload step. Store it as ConfigEntry Options."""
         errors = {}
         if user_input is not None:
             # self.options=user_input
             return self.async_create_entry(
-                title="Openplantbook API", data=self.data, options=user_input
+                title="Openplantbook API",
+                data=self.data,
+                options=user_input,
             )
 
         return self.async_show_form(
-            step_id="upload", data_schema=UPLOAD_SCHEMA, errors=errors
+            step_id="upload",
+            data_schema=UPLOAD_SCHEMA,
+            errors=errors,
         )
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
-    """Handling options for plant"""
+    """Handling options for plant."""
 
     def __init__(
         self,
@@ -139,7 +140,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         self.errors = {}
 
     async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
+        self,
+        user_input: dict[str, Any] | None = None,
     ) -> data_entry_flow.FlowResult:
         """Manage the options."""
         self.errors = {}
@@ -148,10 +150,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         # Uploader settings
         upload_sensors = self.entry.options.get(FLOW_UPLOAD_DATA, False)
         location_country = self.entry.options.get(
-            FLOW_UPLOAD_HASS_LOCATION_COUNTRY, False
+            FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
+            False,
         )
         location_coordinates = self.entry.options.get(
-            FLOW_UPLOAD_HASS_LOCATION_COORD, False
+            FLOW_UPLOAD_HASS_LOCATION_COORD,
+            False,
         )
 
         if user_input is not None:
@@ -170,21 +174,25 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         data_schema = {
             vol.Optional(FLOW_UPLOAD_DATA, default=upload_sensors): cv.boolean,
             vol.Optional(
-                FLOW_UPLOAD_HASS_LOCATION_COUNTRY, default=location_country
+                FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
+                default=location_country,
             ): cv.boolean,
             vol.Optional(
-                FLOW_UPLOAD_HASS_LOCATION_COORD, default=location_coordinates
+                FLOW_UPLOAD_HASS_LOCATION_COORD,
+                default=location_coordinates,
             ): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_IMAGES, default=download_images): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_PATH, default=download_path): cv.string,
         }
 
         return self.async_show_form(
-            step_id="init", data_schema=vol.Schema(data_schema), errors=self.errors
+            step_id="init",
+            data_schema=vol.Schema(data_schema),
+            errors=self.errors,
         )
 
-    async def validate_input(self, user_input):
-        """Validating input"""
+    async def validate_input(self, user_input) -> bool:
+        """Validate input."""
         # If we dont want to download, dont worry about the path
         if not user_input.get(FLOW_DOWNLOAD_IMAGES):
             return True
