@@ -153,7 +153,7 @@ from custom_components.openplantbook.uploader import get_supported_state_value
                 state="500",
                 attributes={
                     "device_class": "conductivity",
-                    "unit_of_measurement": "µS/cm",
+                    "unit_of_measurement": "μS/cm",
                 },
             ),
             500,
@@ -165,7 +165,7 @@ from custom_components.openplantbook.uploader import get_supported_state_value
                 state="5000",
                 attributes={
                     "device_class": "conductivity",
-                    "unit_of_measurement": "µS/cm",
+                    "unit_of_measurement": "μS/cm",
                 },
             ),
             5000,
