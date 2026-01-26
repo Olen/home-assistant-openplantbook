@@ -41,7 +41,7 @@ UPLOAD_SCHEMA = vol.Schema(
 )
 
 
-async def validate_input(hass: core.HomeAssistant, data):
+async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, str]:
     """Validate the user input allows us to connect.
 
     Data has the keys from DATA_SCHEMA with values provided by the user.
@@ -56,12 +56,12 @@ async def validate_input(hass: core.HomeAssistant, data):
         )
         await hass.data[DOMAIN][ATTR_API]._async_get_token()
         # TODO 4: Error messages for "unable to connect" and "creds are not valid" not working well.
-    except PermissionError:
-        raise ValueError
+    except PermissionError as ex:
+        raise ValueError from ex
     # If any of credentials are empty
     except (KeyError, MissingClientIdOrSecret) as ex:
         _LOGGER.debug("API client_id and/or client secret are invalid: %s", ex)
-        raise ValueError
+        raise ValueError from ex
     except Exception as ex:
         _LOGGER.error("Unable to connect to OpenPlantbook: %s", ex)
         raise
@@ -128,7 +128,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
-    """Handling options for plant."""
+    """Handle options for the OpenPlantbook integration."""
 
     def __init__(self) -> None:
         """Initialize options flow."""
@@ -183,8 +183,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init", data_schema=vol.Schema(data_schema), errors=self.errors
         )
 
-    async def validate_input(self, user_input):
-        """Validating input"""
+    async def validate_input(self, user_input: dict) -> bool:
+        """Validate user input."""
         # If we dont want to download, dont worry about the path
         if not user_input.get(FLOW_DOWNLOAD_IMAGES):
             return True
@@ -201,11 +201,3 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             self.errors[FLOW_DOWNLOAD_PATH] = "invalid_path"
             return False
         return True
-
-    # Moved to __init__.py
-    # async def update_plantbook_options(
-    #     self, hass: core.HomeAssistant, entry: config_entries.ConfigEntry
-    # ):
-    #     """Updating plantbook options"""
-    #     _LOGGER.debug("Update: %s, %s, %s", entry.entry_id, entry.data, entry.options)
-    #     if self.entry.options.get(FLOW_UPLOAD_DATA):
