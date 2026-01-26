@@ -7,7 +7,8 @@ import os
 from typing import Any
 
 import voluptuous as vol
-from homeassistant import config_entries, core, data_entry_flow
+from homeassistant import config_entries, core
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.helpers import config_validation as cv
 from openplantbook_sdk import MissingClientIdOrSecret
@@ -72,7 +73,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for OpenPlantBook."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_UNKNOWN
 
     data: dict[str, Any] | None
 
@@ -80,13 +80,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @core.callback
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
-    ) -> config_entries.OptionsFlow:
+    ) -> OptionsFlowHandler:
         """Create the options flow."""
-        return OptionsFlowHandler(config_entry)
+        return OptionsFlowHandler()
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
-        errors = {}
+        errors: dict[str, str] = {}
         if user_input is not None:
             try:
                 await validate_input(self.hass, user_input)
@@ -107,14 +109,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
 
-    async def async_step_upload(self, user_input=None):
+    async def async_step_upload(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle the upload step.
+
+        Store it as ConfigEntry Options.
         """
-        Handle the upload step.
-        Store it as ConfigEntry Options
-        """
-        errors = {}
+        errors: dict[str, str] = {}
         if user_input is not None:
-            # self.options=user_input
             return self.async_create_entry(
                 title="Openplantbook API", data=self.data, options=user_input
             )
@@ -125,30 +128,27 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class OptionsFlowHandler(config_entries.OptionsFlow):
-    """Handling options for plant"""
+    """Handling options for plant."""
 
-    def __init__(
-        self,
-        entry: config_entries.ConfigEntry,
-    ) -> None:
+    def __init__(self) -> None:
         """Initialize options flow."""
-        # entry.async_on_unload(entry.add_update_listener(self.update_plantbook_options))
-        self.entry = entry
-        self.errors = {}
+        self.errors: dict[str, str] = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> data_entry_flow.FlowResult:
+    ) -> ConfigFlowResult:
         """Manage the options."""
         self.errors = {}
-        download_images = self.entry.options.get(FLOW_DOWNLOAD_IMAGES, False)
-        download_path = self.entry.options.get(FLOW_DOWNLOAD_PATH, DEFAULT_IMAGE_PATH)
+        download_images = self.config_entry.options.get(FLOW_DOWNLOAD_IMAGES, False)
+        download_path = self.config_entry.options.get(
+            FLOW_DOWNLOAD_PATH, DEFAULT_IMAGE_PATH
+        )
         # Uploader settings
-        upload_sensors = self.entry.options.get(FLOW_UPLOAD_DATA, False)
-        location_country = self.entry.options.get(
+        upload_sensors = self.config_entry.options.get(FLOW_UPLOAD_DATA, False)
+        location_country = self.config_entry.options.get(
             FLOW_UPLOAD_HASS_LOCATION_COUNTRY, False
         )
-        location_coordinates = self.entry.options.get(
+        location_coordinates = self.config_entry.options.get(
             FLOW_UPLOAD_HASS_LOCATION_COORD, False
         )
 
@@ -163,7 +163,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             location_country = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY)
             location_coordinates = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COORD)
 
-        _LOGGER.debug("Init: %s, %s", self.entry.entry_id, self.entry.options)
+        _LOGGER.debug(
+            "Init: %s, %s", self.config_entry.entry_id, self.config_entry.options
+        )
 
         data_schema = {
             vol.Optional(FLOW_UPLOAD_DATA, default=upload_sensors): cv.boolean,
