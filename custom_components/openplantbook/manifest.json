@@ -5,6 +5,7 @@
     "@Olen"
   ],
   "config_flow": true,
+  "homeassistant": "2025.8.0",
   "dependencies": [
     "history",
     "recorder"
