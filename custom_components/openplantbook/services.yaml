@@ -40,7 +40,7 @@ clean_cache:
   fields:
     hours:
       name: Hours
-      description: Minimum age of entries to clean from the cache. Default to 24 hours if not set
+      description: Minimum age of entries to clean from the cache. Defaults to 24 hours if not set
       example: 6
       required: false
       selector:

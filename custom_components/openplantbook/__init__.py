@@ -5,11 +5,10 @@ import logging
 import os
 import re
 import urllib.parse
+from asyncio import timeout as async_timeout
 from datetime import datetime, timedelta
 
-import async_timeout
 import voluptuous as vol
-from homeassistant import exceptions
 from homeassistant.components.persistent_notification import (
     create as create_notification,
 )
@@ -59,12 +58,12 @@ CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup(hass: HomeAssistant, config: dict):
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the OpenPlantBook component."""
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OpenPlantBook from a config entry."""
 
     if DOMAIN not in hass.data:
@@ -114,9 +113,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             )
 
         # Here we try to ensure that we only run one API request for each species
-        # The first process creates an empty dict, and access the API
+        # The first process creates an empty dict, and accesses the API
         # Later requests for the same species either wait for the first one to complete
-        # or they returns immediately if we already have the data we need
+        # or they return immediately if we already have the data we need
         _LOGGER.debug("get_plant %s", species)
         if species not in hass.data[DOMAIN][ATTR_SPECIES]:
             _LOGGER.debug("I am the first process to get %s", species)
@@ -185,7 +184,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             wait = 0
             while OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
                 _LOGGER.debug("Waiting")
-                wait = wait + 1
+                wait += 1
                 if wait == 10:
                     _LOGGER.error("Giving up waiting for OpenPlantBook")
                     raise OpenPlantbookException(
@@ -212,7 +211,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         alias = call.data.get(ATTR_ALIAS)
         if alias is None:
             raise OpenPlantbookException(
-                "invalid service call, required attribute %s missing", alias
+                "invalid service call, required attribute %s missing", ATTR_ALIAS
             )
 
         _LOGGER.info("Searching for %s", alias)
@@ -252,7 +251,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     hass.states.async_remove(entity_id)
                     hass.data[DOMAIN][ATTR_SPECIES].pop(species)
 
-    async def async_download_image(url, download_to):
+    async def async_download_image(url: str, download_to: str) -> str | bool:
         _LOGGER.debug(
             "Going to download image %s to %s",
             url,
@@ -265,7 +264,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             return download_to
         websession = async_get_clientsession(hass)
 
-        with async_timeout.timeout(10):
+        async with async_timeout(10):
             resp = await websession.get(url)
             if resp.status != 200:
                 _LOGGER.warning(
@@ -306,7 +305,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading %s", DOMAIN)
     _LOGGER.debug("Removing cache")
@@ -330,16 +329,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 
 async def config_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle component's options update"""
+    """Handle component's options update."""
     # await hass.config_entries.async_reload(entry.entry_id)
 
     _LOGGER.debug("Options update: %s, %s", entry.entry_id, entry.options)
     await async_setup_upload_schedule(hass, entry)
-
-
-class CannotConnect(exceptions.HomeAssistantError):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(exceptions.HomeAssistantError):
-    """Error to indicate there is invalid auth."""

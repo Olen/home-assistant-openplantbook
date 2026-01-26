@@ -6,7 +6,7 @@
           "client_id": "Client ID",
           "client_secret": "Secret"
         },
-        "description": "Log in to https://open.plantbook.io/apikey/show/ and get you API client id and secret."
+        "description": "Log in to https://open.plantbook.io/apikey/show/ and get your API client id and secret."
       },
       "upload": {
         "data": {

@@ -24,28 +24,32 @@ This can be installed manually or through HACS
     * Click Integrations
     * Click the 3 dots in the top right corner and select "Custom Repositories"
     * Add the URL to this GitHub repository and category "Integration"
-* Click "Install" in the new "OpenPlantbook" card in HACS.
-* Wait for install to complete
+* Click "Download" in the new "OpenPlantbook" card in HACS.
+* Wait for the download to complete
 * Restart Home Assistant
 
 ### Manual Installation
 
-* Copy the whole`custom_components/openplantbook/` directory to your server's `<config>/custom_components` directory
+* Copy the whole `custom_components/openplantbook/` directory to your server's `<config>/custom_components` directory
 * Restart Home Assistant
 
 ## Set up
 
 The integration is set up using the GUI. You must have a valid `client_id` and `secret` from OpenPlantbook to set up the
 integration.
-After creating an account at the OpenPlantbook, you can find your `client_id` and `secret`
+After creating an account at OpenPlantbook, you can find your `client_id` and `secret`
 here: https://open.plantbook.io/apikey/show/
 
-Go to "Settings" -> "Integrations" in Home Assistant. Click "Add integration" and find "OpenPlantbook" in the list.
-The integration validates the credentials and throws an error if they are incorrect.
+1. Go to **Settings** -> **Devices & Services** in Home Assistant
+2. Click **Add Integration** and search for "OpenPlantbook"
+3. Enter your `client_id` and `secret` - the integration validates the credentials and shows an error if they are incorrect
+4. Configure upload settings for plant sensor data (optional but recommended)
 
 ## Configuration
 
-The integration provide the following configuration options:
+During initial setup, you will be asked to configure upload settings for plant sensor data. After the integration is set up, you can access additional options (including image download settings) by clicking "Configure" on the integration card.
+
+The integration provides the following configuration options:
 
 ![image](./images/config-options.png)
 
@@ -89,7 +93,9 @@ It'd be great if you could share at least a country.
 
 ![image](./images/debug-logging.png)
 
-### Automatically download images from OpenPlantbook.
+### Automatically download images from OpenPlantbook
+
+This option is available in the integration's Options (click "Configure" on the integration card after setup).
 
 The default path to save the images is `/config/www/images/plants`, but it can be set to any directory you wish.
 
