@@ -146,6 +146,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
     entity_reg = entity_registry.async_get(hass)
     jts_doc = JtsDocument()
+    latest_data = None  # Track latest upload timestamp across all plants
 
     # Go through plant devices one by one and extract corresponding sensors' states
     for i in plant_devices:
