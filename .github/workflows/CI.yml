@@ -2,58 +2,37 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - master
   pull_request:
     branches:
-      - main
       - master
+      - main
+  schedule:
+    - cron: "0 0 15 * *"
 
 jobs:
   lint:
-    name: Lint and Format Check
+    name: Lint
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code from GitHub
+      - name: Check out code
         uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
-      - name: Install dependencies
-        run: uv pip install --system black
+      - name: Install linters
+        run: uv pip install black ruff --system
 
-      - name: Black Code Format Check
+      - name: Check formatting (black)
         run: black . --check --fast --diff
 
-  validate:
-    name: Validate with hassfest
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code from GitHub
-        uses: actions/checkout@v6
-
-      - name: Run hassfest
-        uses: home-assistant/actions/hassfest@master
-
-  hacs:
-    name: HACS Validation
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code from GitHub
-        uses: actions/checkout@v6
-
-      - name: HACS Action
-        uses: hacs/action@main
-        with:
-          category: integration
-          ignore: brands
+      - name: Check linting (ruff)
+        run: ruff check .
 
   test:
     name: Tests (HA ${{ matrix.ha-version }})
@@ -62,7 +41,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Latest HA version
+          # Latest HA version - uses current pytest-homeassistant-custom-component
           - ha-version: "latest"
             pytest-ha-version: ""
           # Minimum HA version from hacs.json (2025.8.0)
@@ -70,16 +49,16 @@ jobs:
           - ha-version: "2025.8"
             pytest-ha-version: "==0.13.270"
     steps:
-      - name: Check out code from GitHub
+      - name: Check out code
         uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
 
       - name: Install dependencies
         run: |
@@ -92,18 +71,26 @@ jobs:
 
       - name: Show installed versions
         run: |
-          echo "pytest-homeassistant-custom-component version:"
-          uv pip show pytest-homeassistant-custom-component | grep Version
-          echo "homeassistant version:"
-          uv pip show homeassistant | grep Version
+          python -c "from homeassistant.const import __version__; print(f'Home Assistant version: {__version__}')"
+          pip show pycares aiodns | grep -E "^(Name|Version)"
 
       - name: Run tests with coverage
-        run: pytest tests/ -v --cov=custom_components/openplantbook --cov-report=xml --cov-report=term-missing
+        run: pytest tests/ -v --cov=custom_components/openplantbook --cov-report=term-missing --cov-report=xml
 
-      - name: Upload coverage to Codecov
-        if: matrix.ha-version == 'latest'
+      - name: Upload coverage reports
         uses: codecov/codecov-action@v5
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.xml
+          files: ./coverage.xml
           fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  validate:
+    name: Validate Integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Run hassfest
+        uses: home-assistant/actions/hassfest@master

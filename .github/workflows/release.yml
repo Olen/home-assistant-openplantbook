@@ -4,62 +4,76 @@ name: "Auto Release"
 on:
   workflow_run:
     workflows: ["CI"]
-    types:
-      - completed
-    branches:
-      - main
-      - master
+    types: [completed]
+    branches: [main, master]
+
+permissions:
+  contents: write
 
 jobs:
   auto-release:
     name: "Auto Release"
     runs-on: "ubuntu-latest"
-    # Only run if CI was successful
+    # Only run if CI succeeded
     if: github.event.workflow_run.conclusion == 'success'
     steps:
-      - name: "✏️ Checkout code"
-        uses: actions/checkout@v4
+      - name: "Checkout code"
+        uses: actions/checkout@v6
         with:
-          # Checkout the commit that triggered the workflow
+          fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: "🏷️ Get version from manifest"
-        id: version
+      - name: "Check if manifest.json changed"
+        id: check_manifest
         run: |
-          VERSION=$(jq -r .version custom_components/*/manifest.json)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Found version: $VERSION"
+          # Get the commits from the workflow run
+          BEFORE_SHA=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+          if [ -z "$BEFORE_SHA" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            CHANGED=$(git diff --name-only $BEFORE_SHA HEAD -- 'custom_components/*/manifest.json' | wc -l)
+            if [ "$CHANGED" -gt 0 ]; then
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "changed=false" >> $GITHUB_OUTPUT
+            fi
+          fi
 
-      - name: "🏷️ Check if tag exists already"
-        uses: mukunku/tag-exists-action@v1.6.0
-        id: check_tag
+      - name: "Get version tag"
+        id: set_var
+        run: echo "COMPONENT_VERSION=$(jq -r .version custom_components/*/manifest.json)" >> $GITHUB_ENV
+        if: steps.check_manifest.outputs.changed == 'true'
+
+      - name: "Check if tag exists already"
+        uses: mukunku/tag-exists-action@v1.7.0
+        id: "check_tag"
         with:
-          tag: "v${{ steps.version.outputs.version }}"
+          tag: "v${{ env.COMPONENT_VERSION }}"
+        if: steps.check_manifest.outputs.changed == 'true'
 
-      - name: "⏭️ Skip if tag already exists"
-        if: steps.check_tag.outputs.exists == 'true'
-        run: |
-          echo "Tag v${{ steps.version.outputs.version }} already exists. Skipping release."
+      - name: "Skip if no manifest change or tag exists"
+        run: echo "Skipping release - manifest unchanged or tag already exists"
+        if: steps.check_manifest.outputs.changed != 'true' || steps.check_tag.outputs.exists == 'true'
 
-      - name: "🗝️ Get previous release version"
-        if: steps.check_tag.outputs.exists != 'true'
+      - name: "Get previous release version"
         id: last_release
-        uses: InsonusK/get-latest-release@v1.1.0
-        with:
-          myToken: ${{ github.token }}
-          exclude_types: "draft|prerelease"
+        run: |
+          LAST_TAG=$(gh release list --exclude-drafts --exclude-pre-releases --limit 1 --json tagName --jq '.[0].tagName // empty')
+          echo "tag_name=${LAST_TAG}" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: steps.check_manifest.outputs.changed == 'true' && steps.check_tag.outputs.exists != 'true'
 
-      - name: "🏷️ Create new tag"
-        if: steps.check_tag.outputs.exists != 'true'
+      - name: "Create new tag"
         uses: rickstaa/action-create-tag@v1
-        id: tag_create
+        id: "tag_create"
         with:
-          tag: "v${{ steps.version.outputs.version }}"
+          tag: "v${{ env.COMPONENT_VERSION }}"
           tag_exists_error: false
-          message: "Version ${{ steps.version.outputs.version }}"
+          message: "Version ${{ env.COMPONENT_VERSION }}"
+        if: steps.check_manifest.outputs.changed == 'true' && steps.check_tag.outputs.exists != 'true'
 
-      - name: "🗒️ Generate release changelog"
-        if: steps.check_tag.outputs.exists != 'true'
+      - name: "Generate release changelog"
         id: changelog
         uses: heinrichreimer/github-changelog-generator-action@v2.4
         with:
@@ -67,25 +81,23 @@ jobs:
           sinceTag: ${{ steps.last_release.outputs.tag_name }}
           headerLabel: "# Notable changes since ${{ steps.last_release.outputs.tag_name }}"
           stripGeneratorNotice: true
+          output: RELEASE_CHANGELOG.md
+        if: steps.check_manifest.outputs.changed == 'true' && steps.check_tag.outputs.exists != 'true'
 
-      - name: "📝 Write changelog to file"
-        if: steps.check_tag.outputs.exists != 'true'
-        run: echo "${{ steps.changelog.outputs.changelog }}" > RELEASE_CHANGELOG.md
-
-      - name: "👍 Create Stable release"
-        if: steps.check_tag.outputs.exists != 'true' && contains(steps.version.outputs.version, 'beta') == false
+      - name: "Create Stable release"
         uses: softprops/action-gh-release@v2
         with:
           prerelease: false
           body_path: RELEASE_CHANGELOG.md
-          name: "Version ${{ steps.version.outputs.version }}"
-          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "Version ${{ env.COMPONENT_VERSION }}"
+          tag_name: "v${{ env.COMPONENT_VERSION }}"
+        if: steps.check_manifest.outputs.changed == 'true' && steps.check_tag.outputs.exists != 'true' && contains(env.COMPONENT_VERSION, 'beta') == false
 
-      - name: "🤞 Create Beta release"
-        if: steps.check_tag.outputs.exists != 'true' && contains(steps.version.outputs.version, 'beta') == true
+      - name: "Create Beta release"
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true
           body_path: RELEASE_CHANGELOG.md
-          name: "Version ${{ steps.version.outputs.version }}"
-          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "Version ${{ env.COMPONENT_VERSION }}"
+          tag_name: "v${{ env.COMPONENT_VERSION }}"
+        if: steps.check_manifest.outputs.changed == 'true' && steps.check_tag.outputs.exists != 'true' && contains(env.COMPONENT_VERSION, 'beta') == true
