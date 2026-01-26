@@ -178,7 +178,16 @@ async def plant_data_upload(
 
         # Corresponding PID(Plant_ID)
         _LOGGER.debug(f"Plant_device_state: {plant_device_state}")
-        opb_pid = plant_device_state[plant_entity_id][0].attributes["species_original"]
+        plant_attributes = plant_device_state[plant_entity_id][0].attributes
+        opb_pid = plant_attributes.get("species_original")
+        if not opb_pid:
+            _LOGGER.warning(
+                "Plant %s does not have 'species_original' attribute. "
+                "This may happen if the plant is still initializing or was created "
+                "without OpenPlantbook. Skipping upload for this plant.",
+                plant_entity_id,
+            )
+            continue
 
         # Plant-instance ID
         plant_instance_id = i.id
