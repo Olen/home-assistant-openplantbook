@@ -94,7 +94,7 @@ def get_supported_state_value(state) -> tuple:
             )
             unit_of_measurement = UnitOfTemperature.CELSIUS
 
-        validate_measurement("°C", (-50, 70))
+        validate_measurement(UnitOfTemperature.CELSIUS, (-50, 70))
 
     # humidity
     elif current_measurement == "humidity":
