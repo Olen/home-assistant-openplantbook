@@ -59,12 +59,12 @@ CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup(hass: HomeAssistant, config: dict):
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the OpenPlantBook component."""
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OpenPlantBook from a config entry."""
 
     if DOMAIN not in hass.data:
@@ -116,7 +116,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         # Here we try to ensure that we only run one API request for each species
         # The first process creates an empty dict, and access the API
         # Later requests for the same species either wait for the first one to complete
-        # or they returns immediately if we already have the data we need
+        # or they return immediately if we already have the data we need
         _LOGGER.debug("get_plant %s", species)
         if species not in hass.data[DOMAIN][ATTR_SPECIES]:
             _LOGGER.debug("I am the first process to get %s", species)
@@ -212,7 +212,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         alias = call.data.get(ATTR_ALIAS)
         if alias is None:
             raise OpenPlantbookException(
-                "invalid service call, required attribute %s missing", alias
+                "invalid service call, required attribute %s missing", ATTR_ALIAS
             )
 
         _LOGGER.info("Searching for %s", alias)
@@ -306,7 +306,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading %s", DOMAIN)
     _LOGGER.debug("Removing cache")
@@ -330,7 +330,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 
 async def config_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle component's options update"""
+    """Handle component's options update."""
     # await hass.config_entries.async_reload(entry.entry_id)
 
     _LOGGER.debug("Options update: %s, %s", entry.entry_id, entry.options)

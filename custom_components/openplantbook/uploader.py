@@ -353,7 +353,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
                 if measurement_errors:
                     _LOGGER.info(
-                        f"Plant (Entity) {entry} has errors in measurements: {measurement_errors}. The invalid values were disregarded. You may"
+                        f"Plant (Entity) {entry} has errors in measurements: {measurement_errors}. The invalid values were disregarded. You may "
                         "enable debug logging for more information."
                     )
 
@@ -369,9 +369,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
             jts_doc, dry_run=False
         )
         _LOGGER.info(
-            "Uploading data from {} sensors was {}".format(
-                len(jts_doc), "successful" if res else "failure"
-            )
+            f"Uploading data from {len(jts_doc)} sensors was {'successful' if res else 'failure'}"
         )
         return {"result": res}
     else:
@@ -419,7 +417,7 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
         _LOGGER.info("Plant-sensors data upload schedule is active")
 
         @callback
-        def start_schedule(_event: Event) -> None:
+        def start_schedule(_event: Event | None = None) -> None:
             """Start the send schedule after the started event."""
             # Wait UPLOAD_WAIT_AFTER_RESTART min after started to upload 1st batch
             async_call_later(
