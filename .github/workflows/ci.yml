@@ -42,6 +42,19 @@ jobs:
       - name: Run hassfest
         uses: home-assistant/actions/hassfest@master
 
+  hacs:
+    name: HACS Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v6
+
+      - name: HACS Action
+        uses: hacs/action@main
+        with:
+          category: integration
+          ignore: brands
+
   test:
     name: Tests (HA ${{ matrix.ha-version }})
     runs-on: ubuntu-latest

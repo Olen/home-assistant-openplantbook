@@ -19,38 +19,30 @@ jobs:
     steps:
       - name: "✏️ Checkout code"
         uses: actions/checkout@v4
-
-      - name: "🔍 Check if manifest.json changed"
-        id: changed-files
-        uses: tj-actions/changed-files@v46
         with:
-          files: custom_components/*/manifest.json
+          # Checkout the commit that triggered the workflow
+          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: "⏭️ Skip if manifest not changed"
-        if: steps.changed-files.outputs.any_changed != 'true'
+      - name: "🏷️ Get version from manifest"
+        id: version
         run: |
-          echo "No manifest.json changes detected. Skipping release."
-          exit 0
-
-      - name: "🏷️ Get version tag"
-        if: steps.changed-files.outputs.any_changed == 'true'
-        id: set_var
-        run: echo "COMPONENT_VERSION=$(jq -r .version custom_components/*/manifest.json)" >> $GITHUB_ENV
+          VERSION=$(jq -r .version custom_components/*/manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Found version: $VERSION"
 
       - name: "🏷️ Check if tag exists already"
-        if: steps.changed-files.outputs.any_changed == 'true'
         uses: mukunku/tag-exists-action@v1.6.0
-        id: "check_tag"
+        id: check_tag
         with:
-          tag: "v${{ env.COMPONENT_VERSION }}"
+          tag: "v${{ steps.version.outputs.version }}"
 
-      - name: "❌ Cancel if tag is already present"
-        if: steps.changed-files.outputs.any_changed == 'true' && steps.check_tag.outputs.exists == 'true'
+      - name: "⏭️ Skip if tag already exists"
+        if: steps.check_tag.outputs.exists == 'true'
         run: |
-          echo "Tag already present: v${{ env.COMPONENT_VERSION }}. Not creating a new release"
+          echo "Tag v${{ steps.version.outputs.version }} already exists. Skipping release."
 
       - name: "🗝️ Get previous release version"
-        if: steps.changed-files.outputs.any_changed == 'true' && steps.check_tag.outputs.exists != 'true'
+        if: steps.check_tag.outputs.exists != 'true'
         id: last_release
         uses: InsonusK/get-latest-release@v1.1.0
         with:
@@ -58,16 +50,16 @@ jobs:
           exclude_types: "draft|prerelease"
 
       - name: "🏷️ Create new tag"
-        if: steps.changed-files.outputs.any_changed == 'true' && steps.check_tag.outputs.exists != 'true'
+        if: steps.check_tag.outputs.exists != 'true'
         uses: rickstaa/action-create-tag@v1
-        id: "tag_create"
+        id: tag_create
         with:
-          tag: "v${{ env.COMPONENT_VERSION }}"
+          tag: "v${{ steps.version.outputs.version }}"
           tag_exists_error: false
-          message: "Version ${{ env.COMPONENT_VERSION }}"
+          message: "Version ${{ steps.version.outputs.version }}"
 
       - name: "🗒️ Generate release changelog"
-        if: steps.changed-files.outputs.any_changed == 'true' && steps.check_tag.outputs.exists != 'true'
+        if: steps.check_tag.outputs.exists != 'true'
         id: changelog
         uses: heinrichreimer/github-changelog-generator-action@v2.4
         with:
@@ -77,23 +69,23 @@ jobs:
           stripGeneratorNotice: true
 
       - name: "📝 Write changelog to file"
-        if: steps.changed-files.outputs.any_changed == 'true' && steps.check_tag.outputs.exists != 'true'
+        if: steps.check_tag.outputs.exists != 'true'
         run: echo "${{ steps.changelog.outputs.changelog }}" > RELEASE_CHANGELOG.md
 
       - name: "👍 Create Stable release"
-        if: steps.changed-files.outputs.any_changed == 'true' && steps.check_tag.outputs.exists != 'true' && contains(env.COMPONENT_VERSION, 'beta') == false
+        if: steps.check_tag.outputs.exists != 'true' && contains(steps.version.outputs.version, 'beta') == false
         uses: softprops/action-gh-release@v2
         with:
           prerelease: false
           body_path: RELEASE_CHANGELOG.md
-          name: "Version ${{ env.COMPONENT_VERSION }}"
-          tag_name: "v${{ env.COMPONENT_VERSION }}"
+          name: "Version ${{ steps.version.outputs.version }}"
+          tag_name: "v${{ steps.version.outputs.version }}"
 
       - name: "🤞 Create Beta release"
-        if: steps.changed-files.outputs.any_changed == 'true' && steps.check_tag.outputs.exists != 'true' && contains(env.COMPONENT_VERSION, 'beta') == true
+        if: steps.check_tag.outputs.exists != 'true' && contains(steps.version.outputs.version, 'beta') == true
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true
           body_path: RELEASE_CHANGELOG.md
-          name: "Version ${{ env.COMPONENT_VERSION }}"
-          tag_name: "v${{ env.COMPONENT_VERSION }}"
+          name: "Version ${{ steps.version.outputs.version }}"
+          tag_name: "v${{ steps.version.outputs.version }}"
