@@ -1,17 +1,18 @@
 """The OpenPlantBook integration."""
 
 import asyncio
-from datetime import datetime, timedelta
 import logging
 import os
 import re
 import urllib.parse
+from datetime import datetime, timedelta
 
 import async_timeout
-from openplantbook_sdk import MissingClientIdOrSecret, OpenPlantBookApi
 import voluptuous as vol
-
 from homeassistant import exceptions
+from homeassistant.components.persistent_notification import (
+    create as create_notification,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import (
@@ -21,13 +22,9 @@ from homeassistant.core import (
     SupportsResponse,
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.util import raise_if_invalid_filename, slugify
-
-from homeassistant.components.persistent_notification import (
-    create as create_notification,
-)
+from openplantbook_sdk import MissingClientIdOrSecret, OpenPlantBookApi
 
 from .const import (
     ATTR_ALIAS,
@@ -35,34 +32,28 @@ from .const import (
     ATTR_HOURS,
     ATTR_IMAGE,
     ATTR_SPECIES,
-    ATTR_PLANT_INSTANCE,
     CACHE_TIME,
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
+    FLOW_UPLOAD_DATA,
     OPB_ATTR_RESULTS,
     OPB_ATTR_SEARCH_RESULT,
     OPB_ATTR_TIMESTAMP,
+    OPB_CURRENT_INFO_MESSAGE,
     OPB_DISPLAY_PID,
+    OPB_INFO_MESSAGE,
     OPB_PID,
     OPB_SERVICE_CLEAN_CACHE,
     OPB_SERVICE_GET,
     OPB_SERVICE_SEARCH,
     OPB_SERVICE_UPLOAD,
-    OPB_MEASUREMENTS_TO_UPLOAD,
-    FLOW_UPLOAD_DATA,
-    OPB_INFO_MESSAGE,
-    OPB_CURRENT_INFO_MESSAGE,
 )
-
+from .plantbook_exception import OpenPlantbookException
 from .uploader import (
-    UPLOAD_TIME_INTERVAL,
-    UPLOAD_WAIT_AFTER_RESTART,
     async_setup_upload_schedule,
     plant_data_upload,
 )
-
-from .plantbook_exception import OpenPlantbookException
 
 CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 _LOGGER = logging.getLogger(__name__)
@@ -99,12 +90,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             create_notification(
                 hass=hass,
                 title="New Feature available in OpenPlantbook Integration",
-                message=f"Plant-sensors data uploading is available now. Please consider enabling it in ["
-                f"OpenPlantbook Integration's settings]("
-                f"https://github.com/Olen/home-assistant-openplantbook?tab=readme-ov-file#configuration) to "
-                f"contribute to a creation of a Worldwide [Browsable]("
-                f"https://open.plantbook.io/ui/sensor-data/) dataset. [More info.]("
-                f"https://open.plantbook.io/ui/sensor-data/)",
+                message="Plant-sensors data uploading is available now. Please consider enabling it in ["
+                "OpenPlantbook Integration's settings]("
+                "https://github.com/Olen/home-assistant-openplantbook?tab=readme-ov-file#configuration) to "
+                "contribute to a creation of a Worldwide [Browsable]("
+                "https://open.plantbook.io/ui/sensor-data/) dataset. [More info.]("
+                "https://open.plantbook.io/ui/sensor-data/)",
             )
         else:
             _LOGGER.debug(
