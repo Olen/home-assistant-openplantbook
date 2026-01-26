@@ -12,6 +12,14 @@
 
 import pytest
 from unittest.mock import Mock
+
+from homeassistant.const import (
+    LIGHT_LUX,
+    PERCENTAGE,
+    UnitOfConductivity,
+    UnitOfTemperature,
+)
+
 from custom_components.openplantbook.uploader import get_supported_state_value
 
 
@@ -22,7 +30,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="77",
-                attributes={"device_class": "temperature", "unit_of_measurement": "°F"},
+                attributes={
+                    "device_class": "temperature",
+                    "unit_of_measurement": UnitOfTemperature.FAHRENHEIT,
+                },
             ),
             25,
             None,
@@ -31,7 +42,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="300",
-                attributes={"device_class": "temperature", "unit_of_measurement": "K"},
+                attributes={
+                    "device_class": "temperature",
+                    "unit_of_measurement": UnitOfTemperature.KELVIN,
+                },
             ),
             27,
             None,
@@ -40,7 +54,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="200",
-                attributes={"device_class": "temperature", "unit_of_measurement": "°C"},
+                attributes={
+                    "device_class": "temperature",
+                    "unit_of_measurement": UnitOfTemperature.CELSIUS,
+                },
             ),
             200,
             "temperature",
@@ -61,7 +78,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="50",
-                attributes={"device_class": "humidity", "unit_of_measurement": "%"},
+                attributes={
+                    "device_class": "humidity",
+                    "unit_of_measurement": PERCENTAGE,
+                },
             ),
             50,
             None,
@@ -70,7 +90,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="150",
-                attributes={"device_class": "humidity", "unit_of_measurement": "%"},
+                attributes={
+                    "device_class": "humidity",
+                    "unit_of_measurement": PERCENTAGE,
+                },
             ),
             150,
             "humidity",
@@ -91,7 +114,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="1000",
-                attributes={"device_class": "illuminance", "unit_of_measurement": "lx"},
+                attributes={
+                    "device_class": "illuminance",
+                    "unit_of_measurement": LIGHT_LUX,
+                },
             ),
             1000,
             None,
@@ -100,7 +126,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="300000",
-                attributes={"device_class": "illuminance", "unit_of_measurement": "lx"},
+                attributes={
+                    "device_class": "illuminance",
+                    "unit_of_measurement": LIGHT_LUX,
+                },
             ),
             300000,
             "illuminance",
@@ -121,7 +150,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="30",
-                attributes={"device_class": "moisture", "unit_of_measurement": "%"},
+                attributes={
+                    "device_class": "moisture",
+                    "unit_of_measurement": PERCENTAGE,
+                },
             ),
             30,
             None,
@@ -130,7 +162,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="150",
-                attributes={"device_class": "moisture", "unit_of_measurement": "%"},
+                attributes={
+                    "device_class": "moisture",
+                    "unit_of_measurement": PERCENTAGE,
+                },
             ),
             150,
             "moisture",
@@ -153,7 +188,7 @@ from custom_components.openplantbook.uploader import get_supported_state_value
                 state="500",
                 attributes={
                     "device_class": "conductivity",
-                    "unit_of_measurement": "µS/cm",
+                    "unit_of_measurement": UnitOfConductivity.MICROSIEMENS_PER_CM,
                 },
             ),
             500,
@@ -165,7 +200,7 @@ from custom_components.openplantbook.uploader import get_supported_state_value
                 state="5000",
                 attributes={
                     "device_class": "conductivity",
-                    "unit_of_measurement": "µS/cm",
+                    "unit_of_measurement": UnitOfConductivity.MICROSIEMENS_PER_CM,
                 },
             ),
             5000,
@@ -187,7 +222,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="50",
-                attributes={"device_class": "unsupported", "unit_of_measurement": "%"},
+                attributes={
+                    "device_class": "unsupported",
+                    "unit_of_measurement": PERCENTAGE,
+                },
             ),
             50,
             "device_class",
@@ -196,7 +234,10 @@ from custom_components.openplantbook.uploader import get_supported_state_value
         (
             Mock(
                 state="invalid_state",
-                attributes={"device_class": "moisture", "unit_of_measurement": "%"},
+                attributes={
+                    "device_class": "moisture",
+                    "unit_of_measurement": PERCENTAGE,
+                },
             ),
             None,
             "moisture",
