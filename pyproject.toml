@@ -7,14 +7,15 @@ select = [
     "E",      # pycodestyle errors
     "W",      # pycodestyle warnings
     "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
 ]
 ignore = [
     "E501",   # line too long (handled by black)
-    "E722",   # bare except (existing code pattern)
-    "F401",   # imported but unused (many re-exports in __init__)
-    "F541",   # f-string without placeholders
-    "F841",   # local variable assigned but never used
 ]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components.openplantbook"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E402"]  # Allow imports not at top of file in tests

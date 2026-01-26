@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Optional, Dict
+from typing import Any
 
 import voluptuous as vol
-from aiohttp import ServerTimeoutError
-from openplantbook_sdk import MissingClientIdOrSecret
-
 from homeassistant import config_entries, core, data_entry_flow
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.helpers import config_validation as cv
+from openplantbook_sdk import MissingClientIdOrSecret
 
 from . import OpenPlantBookApi
 from .const import (
@@ -22,10 +20,10 @@ from .const import (
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
     FLOW_UPLOAD_DATA,
-    FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
     FLOW_UPLOAD_HASS_LOCATION_COORD,
-    OPB_INFO_MESSAGE,
+    FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
     OPB_CURRENT_INFO_MESSAGE,
+    OPB_INFO_MESSAGE,
 )
 
 TITLE = "title"
@@ -55,9 +53,9 @@ async def validate_input(hass: core.HomeAssistant, data):
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
             data[CONF_CLIENT_ID], data[CONF_CLIENT_SECRET]
         )
-        res = await hass.data[DOMAIN][ATTR_API]._async_get_token()
+        await hass.data[DOMAIN][ATTR_API]._async_get_token()
         # TODO 4: Error messages for "unable to connect" and "creds are not valid" not working well.
-    except PermissionError as ex:
+    except PermissionError:
         raise ValueError
     # If any of credentials are empty
     except (KeyError, MissingClientIdOrSecret) as ex:
@@ -76,7 +74,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_UNKNOWN
 
-    data: Optional[Dict[str, Any]]
+    data: dict[str, Any] | None
 
     @staticmethod
     @core.callback
@@ -92,9 +90,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 await validate_input(self.hass, user_input)
-            except ValueError as ex:
+            except ValueError:
                 errors[CONF_CLIENT_ID] = "invalid_auth"
-            except Exception as ex:
+            except Exception:
                 errors["base"] = "cannot_connect"
 
             if not errors:
