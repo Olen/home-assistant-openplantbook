@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches:
+      - master
+      - main
+  schedule:
+    - cron: "0 0 15 * *"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install linters
+        run: uv pip install black ruff --system
+
+      - name: Check formatting (black)
+        run: black . --check --fast --diff
+
+      - name: Check linting (ruff)
+        run: ruff check .
+
+  test:
+    name: Tests (HA ${{ matrix.ha-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Latest HA version - uses current pytest-homeassistant-custom-component
+          - ha-version: "latest"
+            pytest-ha-version: ""
+          # Minimum HA version from hacs.json (2025.8.0)
+          # pytest-homeassistant-custom-component 0.13.270 supports HA 2025.8.x
+          - ha-version: "2025.8"
+            pytest-ha-version: "==0.13.270"
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system --no-cache pytest pytest-cov
+          uv pip install --system --no-cache "pytest-homeassistant-custom-component${{ matrix.pytest-ha-version }}"
+          # Pin aiodns/pycares to known working versions to avoid compatibility issues
+          uv pip install --system --no-cache "aiodns==3.5.0" "pycares==4.11.0"
+          # Install integration dependencies
+          uv pip install --system --no-cache json-timeseries openplantbook-sdk
+
+      - name: Show installed versions
+        run: |
+          python -c "from homeassistant.const import __version__; print(f'Home Assistant version: {__version__}')"
+          pip show pycares aiodns | grep -E "^(Name|Version)"
+
+      - name: Run tests with coverage
+        run: pytest tests/ -v --cov=custom_components/openplantbook --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  validate:
+    name: Validate Integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Run hassfest
+        uses: home-assistant/actions/hassfest@master
