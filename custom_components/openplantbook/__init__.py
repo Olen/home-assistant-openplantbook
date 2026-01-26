@@ -5,11 +5,10 @@ import logging
 import os
 import re
 import urllib.parse
+from asyncio import timeout as async_timeout
 from datetime import datetime, timedelta
 
-import async_timeout
 import voluptuous as vol
-from homeassistant import exceptions
 from homeassistant.components.persistent_notification import (
     create as create_notification,
 )
@@ -114,7 +113,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
 
         # Here we try to ensure that we only run one API request for each species
-        # The first process creates an empty dict, and access the API
+        # The first process creates an empty dict, and accesses the API
         # Later requests for the same species either wait for the first one to complete
         # or they return immediately if we already have the data we need
         _LOGGER.debug("get_plant %s", species)
@@ -185,7 +184,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             wait = 0
             while OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
                 _LOGGER.debug("Waiting")
-                wait = wait + 1
+                wait += 1
                 if wait == 10:
                     _LOGGER.error("Giving up waiting for OpenPlantBook")
                     raise OpenPlantbookException(
@@ -252,7 +251,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     hass.states.async_remove(entity_id)
                     hass.data[DOMAIN][ATTR_SPECIES].pop(species)
 
-    async def async_download_image(url, download_to):
+    async def async_download_image(url: str, download_to: str) -> str | bool:
         _LOGGER.debug(
             "Going to download image %s to %s",
             url,
@@ -265,7 +264,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return download_to
         websession = async_get_clientsession(hass)
 
-        with async_timeout.timeout(10):
+        async with async_timeout(10):
             resp = await websession.get(url)
             if resp.status != 200:
                 _LOGGER.warning(
@@ -335,11 +334,3 @@ async def config_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 
     _LOGGER.debug("Options update: %s, %s", entry.entry_id, entry.options)
     await async_setup_upload_schedule(hass, entry)
-
-
-class CannotConnect(exceptions.HomeAssistantError):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(exceptions.HomeAssistantError):
-    """Error to indicate there is invalid auth."""

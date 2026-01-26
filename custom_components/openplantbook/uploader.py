@@ -114,7 +114,9 @@ def get_supported_state_value(state) -> tuple:
     return supported_state, state_error
 
 
-async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
+async def plant_data_upload(
+    hass: HomeAssistant, entry: ConfigEntry, call=None
+) -> dict[str, Any] | None:
     if DOMAIN not in hass.data:
         raise OpenPlantbookException("no data found for domain %s", DOMAIN)
     # _device_id = call.data.get(ATTR_PLANT_INSTANCE)
@@ -183,7 +185,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
         # Registering Plant-instance
         reg_map = {plant_instance_id: opb_pid}
-        _LOGGER.debug(f"Registering Plant-instance: {str(reg_map)}")
+        _LOGGER.debug(f"Registering Plant-instance: {reg_map}")
 
         res = None
         caught_exception = None
@@ -234,7 +236,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
                 except Exception as ex_in:
                     _LOGGER.debug(
-                        f"The 'display_pid workaround' failed to register Plant-instance: {str(reg_map)} due to Exception: {ex_in}"
+                        f"The 'display_pid workaround' failed to register Plant-instance: {reg_map} due to Exception: {ex_in}"
                     )
 
         except Exception as ex:
@@ -242,11 +244,11 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
         if caught_exception:
             _LOGGER.error(
-                f"Cannot upload sensor data for plant '{str(reg_map)}' because Unable to register Plant-instance due to Exception: {caught_exception}"
+                f"Cannot upload sensor data for plant '{reg_map}' because unable to register Plant-instance due to exception: {caught_exception}"
             )
             continue
 
-        _LOGGER.debug(f"Registration is successful with response: {str(res)}")
+        _LOGGER.debug(f"Registration is successful with response: {res}")
         # Error out if unexpected response has been received
         try:
             # Get OpenPlantbook generated ID for the Plant-instance
@@ -257,7 +259,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
         # Get the latest_data timestamp from OPB response
         latest_data = res[0].get("latest_data")
-        _LOGGER.debug(f"Latest_data timestamp from OPB (in UTC): {str(latest_data)}")
+        _LOGGER.debug(f"Latest_data timestamp from OPB (in UTC): {latest_data}")
 
         query_period_end_timestamp = dt_util.now(dt.UTC)
 
@@ -308,7 +310,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
                     [entry.entity_id],
                 )
 
-                _LOGGER.debug(f"Parsing states of: {entry} ")
+                _LOGGER.debug(f"Parsing states of: {entry}")
 
                 measurement_errors = []
 
@@ -317,7 +319,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
                     for state in entity_states:
                         # check if it is meaningful state
-                        if state.state == "unknown" or state.state == "unavailable":
+                        if state.state in ("unknown", "unavailable"):
                             continue
                         # check if we are getting the last value of the state which was not updated over query period
                         if dt_util.as_utc(state.last_updated) == dt_util.as_utc(
@@ -401,7 +403,7 @@ async def plant_data_upload(hass, entry, call=None) -> dict[str, Any] | None:
 
 
 async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Set up the time sync."""
+    """Set up the plant-sensors upload schedule."""
 
     _LOGGER.debug("Setting up plant-sensors upload schedule")
 
