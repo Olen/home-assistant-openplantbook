@@ -6,7 +6,7 @@
           "client_id": "Client ID",
           "client_secret": "Secret"
         },
-        "description": "Log in to https://open.plantbook.io/apikey/show/ and get your API client id and secret."
+        "description": "Log in to [OpenPlantbook]({apikey_url}) and get your API client id and secret."
       },
       "upload": {
         "data": {
@@ -14,7 +14,7 @@
           "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
           "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration"
         },
-        "description": "Upload Plant-sensors data to OpenPlantbook. Please consider enabling it to contribute to a creation of a Worldwide Browsable dataset. More info: https://open.plantbook.io/ui/sensor-data/",
+        "description": "Upload Plant-sensors data to OpenPlantbook. Please consider enabling it to contribute to a creation of a Worldwide Browsable dataset. [More info]({sensor_data_url})",
         "title": "Plant-sensors data uploading"
       }
     },
@@ -31,7 +31,7 @@
     "step": {
       "init": {
         "title": "Options",
-        "description": "More information about Plant data uploading at https://open.plantbook.io/ui/sensor-data/",
+        "description": "More information about Plant data uploading at [OpenPlantbook]({sensor_data_url})",
         "data": {
           "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
           "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",

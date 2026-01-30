@@ -106,7 +106,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_upload()
 
         return self.async_show_form(
-            step_id="user", data_schema=DATA_SCHEMA, errors=errors
+            step_id="user",
+            data_schema=DATA_SCHEMA,
+            errors=errors,
+            description_placeholders={
+                "apikey_url": "https://open.plantbook.io/apikey/show/"
+            },
         )
 
     async def async_step_upload(
@@ -123,7 +128,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         return self.async_show_form(
-            step_id="upload", data_schema=UPLOAD_SCHEMA, errors=errors
+            step_id="upload",
+            data_schema=UPLOAD_SCHEMA,
+            errors=errors,
+            description_placeholders={
+                "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/"
+            },
         )
 
 
@@ -180,7 +190,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         }
 
         return self.async_show_form(
-            step_id="init", data_schema=vol.Schema(data_schema), errors=self.errors
+            step_id="init",
+            data_schema=vol.Schema(data_schema),
+            errors=self.errors,
+            description_placeholders={
+                "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/"
+            },
         )
 
     async def validate_input(self, user_input: dict) -> bool:
