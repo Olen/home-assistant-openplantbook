@@ -1,60 +1,85 @@
-# Example GUI
+# 🖥️ Example: Plant Search GUI
 
-This is a very rough example on what I have set up to create the HA GUI.
+Build a simple plant search interface in Home Assistant using OpenPlantbook actions, helpers, and Lovelace cards.
 
-![Example](../images/openplantbook.gif)
+![OpenPlantbook GUI example](../images/openplantbook.gif)
 
+> [!NOTE]
+> This UI is **not** part of the integration — it's an example of what you can build with the OpenPlantbook actions.
 
-## Helpers
+---
 
-We need some helpers to save the search results and trigger the automatons
+## 📑 Table of Contents
 
-### input_text
+- [🖥️ Example: Plant Search GUI](#️-example-plant-search-gui)
+  - [📋 Helpers](#-helpers)
+  - [⚙️ Automations](#️-automations)
+  - [🃏 Lovelace Cards](#-lovelace-cards)
+
+---
+
+## 📋 Helpers
+
+Create these helpers to store search results and trigger the automations. You can create them via YAML or in the UI under **Settings** → **Devices & Services** → **Helpers**.
+
+### Input Text — Search Field
+
+```yaml
+input_text:
+  openplantbook_search:
+    name: Search OpenPlantbook
 ```
-openplantbook_search:
-  name: Search OpenPlantbook
+
+### Input Select — Search Results Dropdown
+
+```yaml
+input_select:
+  openplantbook_searchresults:
+    name: Openplantbook Search Results
+    options:
+      - "Search first"
 ```
 
-### input_select
-```
-openplantbook_searchresults:
-  name: Openplantbook Search Results
-  options:
-    - "Search first"
-```
-### input_button
-```
-openplantbook_clear_cache:
-  name: Clear Openplantbook Cache
+### Input Button — Clear Cache
+
+```yaml
+input_button:
+  openplantbook_clear_cache:
+    name: Clear Openplantbook Cache
 ```
 
-## Automations
+---
 
-These automations trigger when the different helpers are modified.
+## ⚙️ Automations
 
-Initiate a search when the input_text helper is modified
+These automations wire the helpers to the OpenPlantbook actions.
 
-```
+### 🔍 Search When Text Changes
+
+Triggers a search whenever the search field is updated:
+
+```yaml
 alias: Search Openplantbook
-trigger:
-  - platform: state
+triggers:
+  - trigger: state
     entity_id: input_text.openplantbook_search
-action:
-  - service: openplantbook.search
+actions:
+  - action: openplantbook.search
     data:
       alias: "{{ states('input_text.openplantbook_search') }}"
-
 ```
 
-Populate the input_select when a search result is ready
+### 📋 Populate Dropdown with Results
 
-```
+Fills the dropdown when search results arrive:
+
+```yaml
 alias: Populate Openplantbook Dropdown
-trigger:
-  - platform: state
+triggers:
+  - trigger: state
     entity_id: openplantbook.search_result
-action:
-  - service: input_select.set_options
+actions:
+  - action: input_select.set_options
     data:
       entity_id: input_select.openplantbook_searchresults
       options: |
@@ -63,45 +88,45 @@ action:
         {% else %}
           [ "No plants found"]
         {% endif %}
-
 ```
 
-Get details from OPB when an option in the dropdown is selected
+### 🌱 Fetch Details on Selection
 
-```
+Gets full plant data when a species is selected from the dropdown:
+
+```yaml
 alias: Get Info From Openplantbook
-trigger:
-  - platform: state
+triggers:
+  - trigger: state
     entity_id: input_select.openplantbook_searchresults
-action:
-  - service: openplantbook.get
+actions:
+  - action: openplantbook.get
     data:
       species: "{{ states('input_select.openplantbook_searchresults') }}"
-
 ```
 
-Clear the cache when the button is pressed
+### 🗑️ Clear Cache on Button Press
 
-```
-
+```yaml
 alias: Clear Openplantbook cache
-trigger:
-  - platform: state
-    entity_id:
-      - input_button.openplantbook_clear_cache
-action:
-  - service: openplantbook.clean_cache
+triggers:
+  - trigger: state
+    entity_id: input_button.openplantbook_clear_cache
+actions:
+  - action: openplantbook.clean_cache
     data:
       hours: 0
 ```
 
+---
 
+## 🃏 Lovelace Cards
 
-## Lovelace
+Two cards: one for searching, one for displaying plant details.
 
-I use two cards.  One for the search and search results, and one to display the info about a single plant.
+### Search Card
 
-```
+```yaml
 type: entities
 title: Search OpenPlantbook
 entities:
@@ -111,11 +136,14 @@ entities:
   - entity: input_button.openplantbook_clear_cache
 ```
 
-```
+### Plant Info Card
+
+A Markdown card that shows the selected plant's image, species, and thresholds:
+
+```yaml
 type: markdown
 title: Plant info
 content: |
-
   {% set plant = "openplantbook." + states('input_select.openplantbook_searchresults') | replace(" ", "_") | replace("'", "") | replace(".", "") %}
   {% if states(plant) == "unknown" %}
   # Search for a plant
@@ -132,11 +160,11 @@ content: |
 
   |                      | Min                                       |    | Max                                       |      |
   |----------------------|------------------------------------------:|----|------------------------------------------:|------|
-  | Moisture             | {{ state_attr(plant, 'min_soil_moist') }} |    | {{ state_attr(plant, 'max_soil_moist') }} |%     |
-  | Conductitivty        | {{ state_attr(plant, 'min_soil_ec') }}    |    | {{ state_attr(plant, 'max_soil_ec') }}    |μS/cm |
-  | Temperature          | {{ state_attr(plant, 'min_temp') }}       |    | {{ state_attr(plant, 'max_temp') }}       |°C    |
-  | Humidity             | {{ state_attr(plant, 'min_env_humid') }}  |    | {{ state_attr(plant, 'max_env_humid') }}  |%     |
-  | Illumination         | {{ state_attr(plant, 'min_light_lux') }}  |    | {{ state_attr(plant, 'max_light_lux') }}  |lx    |
-  | Daily Light Integral | {{ min_dli }}                             |    | {{ max_dli }}                             |mol/d⋅m²|
+  | Moisture             | {{ state_attr(plant, 'min_soil_moist') }} |    | {{ state_attr(plant, 'max_soil_moist') }} | %     |
+  | Conductivity         | {{ state_attr(plant, 'min_soil_ec') }}    |    | {{ state_attr(plant, 'max_soil_ec') }}    | μS/cm |
+  | Temperature          | {{ state_attr(plant, 'min_temp') }}       |    | {{ state_attr(plant, 'max_temp') }}       | °C    |
+  | Humidity             | {{ state_attr(plant, 'min_env_humid') }}  |    | {{ state_attr(plant, 'max_env_humid') }}  | %     |
+  | Illumination         | {{ state_attr(plant, 'min_light_lux') }}  |    | {{ state_attr(plant, 'max_light_lux') }}  | lx    |
+  | Daily Light Integral | {{ min_dli }}                             |    | {{ max_dli }}                             | mol/d⋅m² |
   {% endif %}
 ```
