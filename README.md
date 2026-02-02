@@ -1,177 +1,149 @@
-# OpenPlantbook integration for Home Assistant
+# 🌿 OpenPlantbook Integration for Home Assistant
 
-This integration allows fetching plants information from and uploading plant sensors' data to OpenPlantBook.
-It creates a few service calls in Home Assistant to interact with [OpenPlantbook API](https://open.plantbook.io/) which
-are:
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![GitHub Release](https://img.shields.io/github/v/release/Olen/home-assistant-openplantbook?style=for-the-badge)](https://github.com/Olen/home-assistant-openplantbook/releases)
 
-* Search plant
-* Get plant details
-* Upload plants sensors data
+Connects Home Assistant to the [OpenPlantbook API](https://open.plantbook.io/) for searching plant species, fetching care data, and uploading sensor readings. Used as the data backend for the [Plant Monitor](https://github.com/Olen/homeassistant-plant) integration.
 
-This is used as a base for the sister-integration https://github.com/Olen/homeassistant-plant which utilizes this API to
-add threshold values for such as moisture, temperature, conductivity etc. based on the plant species.
+---
 
-## Installation
+## 📑 Table of Contents
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+- [🌿 OpenPlantbook Integration for Home Assistant](#-openplantbook-integration-for-home-assistant)
+  - [📦 Installation](#-installation)
+  - [🔧 Setup](#-setup)
+  - [⚙️ Configuration Options](#️-configuration-options)
+  - [📡 Actions (Service Calls)](#-actions-service-calls)
+  - [🖥️ GUI Example](#️-gui-example)
+  - [☕ Support](#-support)
 
-This can be installed manually or through HACS
+---
 
-### Via HACS
+## 📦 Installation
 
-* Add this repo as a "Custom repository" with type "Integration"
-    * Click HACS in your Home Assistant
-    * Click Integrations
-    * Click the 3 dots in the top right corner and select "Custom Repositories"
-    * Add the URL to this GitHub repository and category "Integration"
-* Click "Download" in the new "OpenPlantbook" card in HACS.
-* Wait for the download to complete
-* Restart Home Assistant
+### Via HACS *(recommended)*
+
+1. Add this repo as a [Custom Repository](https://hacs.xyz/docs/faq/custom_repositories/) with type **Integration**
+2. Click **Download** in the "OpenPlantbook" card in HACS
+3. Restart Home Assistant
 
 ### Manual Installation
 
-* Copy the whole `custom_components/openplantbook/` directory to your server's `<config>/custom_components` directory
-* Restart Home Assistant
+1. Copy `custom_components/openplantbook/` to your `<config>/custom_components/` directory
+2. Restart Home Assistant
 
-## Set up
+---
 
-The integration is set up using the GUI. You must have a valid `client_id` and `secret` from OpenPlantbook to set up the
-integration.
-After creating an account at OpenPlantbook, you can find your `client_id` and `secret`
-here: https://open.plantbook.io/apikey/show/
+## 🔧 Setup
 
-1. Go to **Settings** -> **Devices & Services** in Home Assistant
-2. Click **Add Integration** and search for "OpenPlantbook"
-3. Enter your `client_id` and `secret` - the integration validates the credentials and shows an error if they are incorrect
-4. Configure upload settings for plant sensor data (optional but recommended)
+You need an OpenPlantbook account (free) with API credentials.
 
-## Configuration
+1. Register at [open.plantbook.io](https://open.plantbook.io/)
+2. Find your `client_id` and `secret` at https://open.plantbook.io/apikey/show/
+3. In Home Assistant: **Settings** → **Devices & Services** → **Add Integration** → **OpenPlantbook**
+4. Enter your credentials — the integration validates them and shows an error if incorrect
+5. Configure upload settings (optional but recommended)
 
-During initial setup, you will be asked to configure upload settings for plant sensor data. After the integration is set up, you can access additional options (including image download settings) by clicking "Configure" on the integration card.
+---
 
-The integration provides the following configuration options:
+## ⚙️ Configuration Options
 
-![image](./images/config-options.png)
+After setup, click **Configure** on the integration card to access additional options.
 
-### Upload plant-sensors' data
+![Configuration options](./images/config-options.png)
 
->**NOTE:** All the data is shared anonymously.
+### 📤 Upload Plant Sensor Data
 
-This option will enable the integration to look for plants created with
-sister-integration https://github.com/Olen/homeassistant-plant Then it will periodically (once a day) upload
-corresponding sensors' data to OpenPlantbook.
+> [!NOTE]
+> All data is shared anonymously.
 
-This allows Plantbook users to browse this data and to create a useful dataset. More information about this feature can
-be found: https://open.plantbook.io/ui/sensor-data/
+When enabled, the integration periodically (once a day) uploads sensor data from your plants to OpenPlantbook. This helps build a useful community dataset. More info: https://open.plantbook.io/ui/sensor-data/
 
-First time the component uploads data for last 24 hours. If sensors' data
-is not available for some reason over period of time (sensors are not connected), the component will try to upload
-data (once a day)
-for period up to last 7 days. E.g.: Sensors are disconnected for 2 days, then the component will query the data
-since last successful upload but up to 7 days. Once data is available, it will be uploaded.
+- First upload: last 24 hours of data
+- If sensors are disconnected, it retries daily for up to 7 days of historical data
+- Can also be triggered manually via the `openplantbook.upload` action
 
-The upload can be triggered manually using the service. See examples below.
+### 🌍 Share Location
 
-### Share location to complement sensors' data
+Optionally share your Home Assistant location to complement sensor data. Two levels:
 
-This option will allow the integration to share Home Assistant location to compliment sensors' data. This allows to
-better understand the environment where a plant grows. The location sharing is only applicable when uploading is
-enabled.
+| Option | What is shared |
+|--------|---------------|
+| **Country only** | Country from HA configuration |
+| **Coordinates** | Lat/lon from HA configuration |
 
-There are 2 options to share location:
+Location is configured in HA under **Settings** → **System** → **General**.
 
-1. Share only country from Home Assistant configuration.
-2. Share location coordinates from Home Assistant configuration.
+![Location settings](./images/hass-location.png)
 
-Location can be set in Home Assistant under Settings/System/General as on screenshot below:
+> [!TIP]
+> Enable DEBUG logging for the integration to see exactly what data is being shared.
+>
+> ![Debug logging](./images/debug-logging.png)
 
-![image](./images/hass-location.png)
+### 🖼️ Automatically Download Images
 
-It'd be great if you could share at least a country.
+Available in the integration's Options (click **Configure** after setup).
 
->**NOTE**: You can enable DEBUG logging for the integration to see what is being shared.
+- Default path: `/config/www/images/plants`
+- Specify any directory the HA user has write access to
+- Relative paths are relative to your config directory
 
-![image](./images/debug-logging.png)
+**Path behavior:**
+- If the path contains `www/` → `image_url` is replaced with a `/local/` reference
+- If the path does **not** contain `www/` → the full OpenPlantbook URL is kept
 
-### Automatically download images from OpenPlantbook
+> [!NOTE]
+> Existing files are never overwritten. The target directory must exist before configuring.
 
-This option is available in the integration's Options (click "Configure" on the integration card after setup).
+---
 
-The default path to save the images is `/config/www/images/plants`, but it can be set to any directory you wish.
+## 📡 Actions (Service Calls)
 
-You need to specify an _existing path_ that the user you are running home assistant as has write access to. If you
-specify a relative path (e.g. a path that does not start with a "/", it means a path below your "config" directory. So "
-www/images/plants" will mean "&lt;home-assistant-install-directory&gt;/config/www/images/plants".
+### `openplantbook.search`
 
-If the path contains **"www/"** the image_url in plant attributes will also be replaced by a reference to
-/local/<path to image>. So if the download path is set to the default "/config/www/images/plants/", the "image_url" of
-the species will be replaced with "/local/images/plants/my plant species.jpg".
-
-If the path does _not_ contain **"www/"** the full link to the image in OpenPlantbook is kept as it is, but the image is
-still downloaded to the path you specify.
-
-Existing files will never be overwritten, and the path needs to exist before the integration is configured.
-
-## Examples
-
-Service calls are added by this integration:
-
-### openplantbook.upload
-
-`openplantbook.upload` can be used to manually trigger uploading of plant-sensors data to OpenPlantbook. No parameters required.
+Search for plants matching a string:
 
 ```yaml
-service: openplantbook.upload
-```
-
-Service return "null" if nothing was uploaded or there was an error. The details can be found in Home Assistant log.
-
-### openplantbook.search
-
-`openplantbook.search` searches the API for plants matching a string. The search result is added to the
-entity `openplantbook.search_result` with the number of returned results as the `state` and a list of results in the
-state attributes.
-
-```yaml
-service: openplantbook.search
-service_data:
+action: openplantbook.search
+data:
   alias: Capsicum
 ```
 
-The result can then be read back from the `openplantbook.search_result` once the search completes:
+Read results from `openplantbook.search_result`:
 
 ```jinja2
 Number of plants found: {{ states('openplantbook.search_result') }}
 {%- for pid in states.openplantbook.search_result.attributes %}
   {%- set name = state_attr('openplantbook.search_result', pid) %}
-  * {{pid}} -> {{name}}
+  * {{ pid }} -> {{ name }}
 {%- endfor %}
 ```
 
-Which would produce
+**Example output:**
 
+```
 Number of plants found: 40
-
-* capsicum annuum -> Capsicum annuum
-* capsicum baccatum -> Capsicum baccatum
-* capsicum bomba yellow red -> Capsicum Bomba yellow red
-* capsicum chinense -> Capsicum chinense
+  * capsicum annuum -> Capsicum annuum
+  * capsicum baccatum -> Capsicum baccatum
+  * capsicum chinense -> Capsicum chinense
   (...)
+```
 
-### openplantbook.get
+### `openplantbook.get`
 
-`openplantbook.get` gets detailed data for a single plant. The result is added to the
-entity `openplantbook.<species name>` with parameters for different max/min values set as attributes.
-
->**NOTE:** You need to search for the exact string returned as "pid" in `openplantbook.search_result` to get the right plant.
+Get detailed data for a single species:
 
 ```yaml
-service: openplantbook.get
-service_data:
+action: openplantbook.get
+data:
   species: capsicum annuum
 ```
 
-And the results can be found in `openplantbook.capsicum_annuum`:
+> [!NOTE]
+> The species string must match exactly the `pid` returned by `openplantbook.search`.
+
+Read results from `openplantbook.capsicum_annuum`:
 
 ```jinja2
 Details for plant {{ states('openplantbook.capsicum_annuum') }}
@@ -181,30 +153,33 @@ Details for plant {{ states('openplantbook.capsicum_annuum') }}
 * Image: {{ state_attr('openplantbook.capsicum_annuum', 'image_url') }}
 ```
 
-Which gives
+### `openplantbook.upload`
 
-Details for plant Capsicum annuum
+Manually trigger uploading of plant sensor data:
 
-* Max moisture: 65
-* Min moisture: 20
-* Max temperature: 35
-* Min temperature: 15
-* (...)
-* Image: https://.../capsicum%20annuum.jpg
+```yaml
+action: openplantbook.upload
+```
 
-### Quick UI example
+Returns `null` if nothing was uploaded or an error occurred. Check the HA log for details.
 
-Just to show how the service calls can be utilized to search the OpenPlantbook API
+---
 
-![Example](images/openplantbook.gif)
+## 🖥️ GUI Example
 
-**PS!**
+An example of using the actions to build a plant search UI in Home Assistant:
 
-This UI is _not_ part of the integration. It is just an example of how to use the service calls.
+![OpenPlantbook GUI](images/openplantbook.gif)
 
-An explanation of the UI is available
-here: https://github.com/Olen/home-assistant-openplantbook/blob/main/examples/GUI.md
+> [!NOTE]
+> This UI is **not** part of the integration — it's an example of what you can build with the actions.
+
+For a full walkthrough with helpers, automations, and Lovelace cards, see **[examples/GUI.md](examples/GUI.md)**.
+
+---
+
+## ☕ Support
 
 <a href="https://www.buymeacoffee.com/olatho" target="_blank">
-<img src="https://user-images.githubusercontent.com/203184/184674974-db7b9e53-8c5a-40a0-bf71-c01311b36b0a.png" style="height: 50px !important;"> 
+<img src="https://user-images.githubusercontent.com/203184/184674974-db7b9e53-8c5a-40a0-bf71-c01311b36b0a.png" style="height: 50px !important;">
 </a>
