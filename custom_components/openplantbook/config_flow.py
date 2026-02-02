@@ -24,8 +24,10 @@ from .const import (
     FLOW_UPLOAD_DATA,
     FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
     FLOW_UPLOAD_HASS_LOCATION_COORD,
+    FLOW_SEND_LANG,
     OPB_INFO_MESSAGE,
     OPB_CURRENT_INFO_MESSAGE,
+    PLANTBOOK_BASEURL,
 )
 
 TITLE = "title"
@@ -38,6 +40,7 @@ UPLOAD_SCHEMA = vol.Schema(
         FLOW_UPLOAD_DATA: bool,
         FLOW_UPLOAD_HASS_LOCATION_COUNTRY: bool,
         FLOW_UPLOAD_HASS_LOCATION_COORD: bool,
+        vol.Optional(FLOW_SEND_LANG, default=True): bool,
     }
 )
 
@@ -53,7 +56,9 @@ async def validate_input(hass: core.HomeAssistant, data):
     # Check if values are not empty
     try:
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
-            data[CONF_CLIENT_ID], data[CONF_CLIENT_SECRET]
+            data[CONF_CLIENT_ID],
+            data[CONF_CLIENT_SECRET],
+            base_url=PLANTBOOK_BASEURL,
         )
         res = await hass.data[DOMAIN][ATTR_API]._async_get_token()
         # TODO 4: Error messages for "unable to connect" and "creds are not valid" not working well.
@@ -153,6 +158,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         location_coordinates = self.entry.options.get(
             FLOW_UPLOAD_HASS_LOCATION_COORD, False
         )
+        # Language option
+        use_lang = self.entry.options.get(FLOW_SEND_LANG, True)
 
         if user_input is not None:
             _LOGGER.debug("User: %s", user_input)
@@ -164,6 +171,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             upload_sensors = user_input.get(FLOW_UPLOAD_DATA)
             location_country = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY)
             location_coordinates = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COORD)
+            use_lang = user_input.get(FLOW_SEND_LANG)
 
         _LOGGER.debug("Init: %s, %s", self.entry.entry_id, self.entry.options)
 
@@ -175,6 +183,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 FLOW_UPLOAD_HASS_LOCATION_COORD, default=location_coordinates
             ): cv.boolean,
+            vol.Optional(FLOW_SEND_LANG, default=use_lang): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_IMAGES, default=download_images): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_PATH, default=download_path): cv.string,
         }

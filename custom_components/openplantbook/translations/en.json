@@ -13,7 +13,8 @@
                 "data": {
                     "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
                     "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration",
-                    "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration"
+                    "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
+                    "use_ha_language": "Use Home-Assistant language when fetching internationalised plants' common names"
                 },
                 "description": "Upload Plant-sensors data to OpenPlantbook. Please consider enabling it to contribute to a creation of a Worldwide Browsable dataset. More info: https://open.plantbook.io/ui/sensor-data/",
                 "title": "Plant-sensors data uploading"
@@ -38,7 +39,8 @@
                     "download_path": "Path to save images",
                     "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
                     "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration",
-                    "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration"
+                    "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
+                    "use_ha_language": "Use Home-Assistant language when fetching internationalised plants' common names"
                 },
                 "description": "More information about Plant-sensors data uploading at https://open.plantbook.io/ui/sensor-data/",
                 "title": "Options"

@@ -1,3 +1,3 @@
 # OpenPlantbook
 
-Integration between Home-Assistant and OpenPlantbook.io
+Integration between Home-Assistant and Open.Plantbook.io

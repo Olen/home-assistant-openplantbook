@@ -53,6 +53,8 @@ from .const import (
     FLOW_UPLOAD_DATA,
     OPB_INFO_MESSAGE,
     OPB_CURRENT_INFO_MESSAGE,
+    FLOW_SEND_LANG,
+    PLANTBOOK_BASEURL,
 )
 
 from .uploader import (
@@ -81,7 +83,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     if ATTR_API not in hass.data[DOMAIN]:
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
-            entry.data.get(CONF_CLIENT_ID), entry.data.get(CONF_CLIENT_SECRET)
+            entry.data.get(CONF_CLIENT_ID),
+            entry.data.get(CONF_CLIENT_SECRET),
+            base_url=PLANTBOOK_BASEURL,
         )
 
     if ATTR_SPECIES not in hass.data[DOMAIN]:
@@ -131,9 +135,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             _LOGGER.debug("I am the first process to get %s", species)
             hass.data[DOMAIN][ATTR_SPECIES][species] = {}
             try:
-                plant_data = await hass.data[DOMAIN][ATTR_API].async_plant_detail_get(
-                    species
+                # Optionally pass Home Assistant language to OpenPlantbook API
+                send_lang = entry.options.get(FLOW_SEND_LANG, True)
+                if send_lang:
+                    # Determine language to use for OpenPlantbook API (ISO 639-1)
+                    lang_code = hass.config.language or "en"
+                    if isinstance(lang_code, str):
+                        lang_code = lang_code.split("-")[0].lower()
+                    else:
+                        lang_code = "en"
+                    plant_data = await hass.data[DOMAIN][
+                        ATTR_API
+                    ].async_plant_detail_get(species, lang=lang_code)
+                else:
+                    plant_data = await hass.data[DOMAIN][
+                        ATTR_API
+                    ].async_plant_detail_get(species)
+            except PermissionError as err:
+                plant_data = None
+                _LOGGER.error(
+                    "Authentication failed while fetching data for %s. Please reconfigure the integration",
+                    species,
                 )
+                del hass.data[DOMAIN][ATTR_SPECIES][species]
+                raise InvalidAuth("Authentication failed") from err
             except MissingClientIdOrSecret:
                 plant_data = None
                 _LOGGER.error(
@@ -227,6 +252,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.info("Searching for %s", alias)
         try:
             plant_data = await hass.data[DOMAIN][ATTR_API].async_plant_search(alias)
+        except PermissionError as err:
+            _LOGGER.error(
+                "Authentication failed while searching for %s. Please reconfigure the integration",
+                alias,
+            )
+            raise InvalidAuth("Authentication failed") from err
         except MissingClientIdOrSecret:
             _LOGGER.error(
                 "Missing client ID or secret. Please set up the integration again"
