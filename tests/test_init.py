@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -11,8 +11,12 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook.const import (
     ATTR_API,
+    ATTR_IMAGE,
     ATTR_SPECIES,
+    DEFAULT_IMAGE_PATH,
     DOMAIN,
+    FLOW_DOWNLOAD_IMAGES,
+    FLOW_DOWNLOAD_PATH,
     OPB_SERVICE_CLEAN_CACHE,
     OPB_SERVICE_GET,
     OPB_SERVICE_SEARCH,
@@ -392,3 +396,132 @@ class TestCleanCacheServiceEdgeCases:
 
         # With invalid hours, uses default (24), recent entries should remain
         assert "monstera deliciosa" in hass.data[DOMAIN][ATTR_SPECIES]
+
+
+class TestImageDownload:
+    """Tests for image download functionality."""
+
+    @pytest.fixture
+    def mock_config_entry_with_download(self) -> MockConfigEntry:
+        """Create a config entry with image download enabled."""
+        return MockConfigEntry(
+            domain=DOMAIN,
+            data={
+                "client_id": "test_client_id",
+                "client_secret": "test_client_secret",
+            },
+            options={
+                FLOW_DOWNLOAD_IMAGES: True,
+                FLOW_DOWNLOAD_PATH: DEFAULT_IMAGE_PATH,
+            },
+            entry_id="test_entry_id_12345",
+            title="Openplantbook API",
+        )
+
+    async def test_get_plant_downloads_image(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry_with_download: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+        tmp_path,
+    ) -> None:
+        """Test get_plant downloads image when enabled and rewrites URL."""
+        # Use a real temp directory under www/ so the /local/ rewrite works
+        download_dir = tmp_path / "www" / "images" / "plants"
+        download_dir.mkdir(parents=True)
+
+        mock_config_entry_with_download.add_to_hass(hass)
+        hass.config_entries.async_update_entry(
+            mock_config_entry_with_download,
+            options={
+                **mock_config_entry_with_download.options,
+                FLOW_DOWNLOAD_PATH: str(download_dir),
+            },
+        )
+
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.read = AsyncMock(return_value=b"fake image data")
+
+        mock_session = MagicMock()
+        mock_session.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "custom_components.openplantbook.async_get_clientsession",
+            return_value=mock_session,
+        ):
+            await hass.config_entries.async_setup(
+                mock_config_entry_with_download.entry_id
+            )
+            await hass.async_block_till_done()
+
+            hass.data[DOMAIN][ATTR_SPECIES].clear()
+
+            result = await hass.services.async_call(
+                DOMAIN,
+                OPB_SERVICE_GET,
+                {"species": "monstera deliciosa"},
+                blocking=True,
+                return_response=True,
+            )
+
+        assert result is not None
+        # The image_url should be rewritten to a /local/ path
+        assert result.get(ATTR_IMAGE, "").startswith("/local/")
+        # Verify the file was actually written
+        downloaded_file = download_dir / "monstera.jpg"
+        assert downloaded_file.exists()
+        assert downloaded_file.read_bytes() == b"fake image data"
+
+    async def test_get_plant_skips_existing_image(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry_with_download: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """Test get_plant skips download when file already exists."""
+        mock_config_entry_with_download.add_to_hass(hass)
+
+        with (
+            patch("os.path.isabs", return_value=True),
+            patch("os.path.isdir", return_value=True),
+        ):
+            await hass.config_entries.async_setup(
+                mock_config_entry_with_download.entry_id
+            )
+            await hass.async_block_till_done()
+
+            hass.data[DOMAIN][ATTR_SPECIES].clear()
+
+            # File already exists on disk
+            with patch("os.path.isfile", return_value=True):
+                result = await hass.services.async_call(
+                    DOMAIN,
+                    OPB_SERVICE_GET,
+                    {"species": "monstera deliciosa"},
+                    blocking=True,
+                    return_response=True,
+                )
+
+        assert result is not None
+        # Should still rewrite to /local/ path even if file existed
+        assert result.get(ATTR_IMAGE, "").startswith("/local/")
+
+    async def test_get_plant_no_download_when_disabled(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """Test get_plant does not download when download is disabled."""
+        result = await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa"},
+            blocking=True,
+            return_response=True,
+        )
+
+        assert result is not None
+        # Image URL should remain the original HTTP URL
+        assert result.get(ATTR_IMAGE, "").startswith("https://")
