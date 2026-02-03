@@ -251,13 +251,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     hass.states.async_remove(entity_id)
                     hass.data[DOMAIN][ATTR_SPECIES].pop(species)
 
+    def _write_file(path: str, data: bytes) -> None:
+        """Write binary data to a file (runs in executor)."""
+        with open(path, "wb") as fil:
+            fil.write(data)
+
     async def async_download_image(url: str, download_to: str) -> str | bool:
         _LOGGER.debug(
             "Going to download image %s to %s",
             url,
             download_to,
         )
-        if os.path.isfile(download_to):
+        if await hass.async_add_executor_job(os.path.isfile, download_to):
             _LOGGER.warning(
                 "File %s already exists. Will not download again", download_to
             )
@@ -273,8 +278,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return False
 
         data = await resp.read()
-        with open(download_to, "wb") as fil:
-            fil.write(data)
+        await hass.async_add_executor_job(_write_file, download_to, data)
 
         _LOGGER.debug("Downloading of %s done", url)
         return download_to
