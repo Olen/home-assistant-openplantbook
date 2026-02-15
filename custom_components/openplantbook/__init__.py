@@ -314,8 +314,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 return False
 
         data = await resp.read()
-        with open(download_to, "wb") as fil:
-            fil.write(data)
+        try:
+            with open(download_to, "wb") as fil:
+                fil.write(data)
+        except OSError as err:
+            _LOGGER.warning(
+                "Failed to write downloaded image to %s: %s", download_to, err
+            )
+            return False
 
         _LOGGER.debug("Downloading of %s done", url)
         return download_to

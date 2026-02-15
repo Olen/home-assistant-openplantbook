@@ -25,6 +25,7 @@ from .const import (
     FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
     FLOW_UPLOAD_HASS_LOCATION_COORD,
     FLOW_SEND_LANG,
+    FLOW_NOTIFY_WARNINGS,
     OPB_INFO_MESSAGE,
     OPB_CURRENT_INFO_MESSAGE,
     PLANTBOOK_BASEURL,
@@ -160,6 +161,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         )
         # Language option
         use_lang = self.entry.options.get(FLOW_SEND_LANG, True)
+        # Notification option
+        notify_warnings = self.entry.options.get(FLOW_NOTIFY_WARNINGS, False)
 
         if user_input is not None:
             _LOGGER.debug("User: %s", user_input)
@@ -172,6 +175,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             location_country = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY)
             location_coordinates = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COORD)
             use_lang = user_input.get(FLOW_SEND_LANG)
+            notify_warnings = user_input.get(FLOW_NOTIFY_WARNINGS)
 
         _LOGGER.debug("Init: %s, %s", self.entry.entry_id, self.entry.options)
 
@@ -184,6 +188,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 FLOW_UPLOAD_HASS_LOCATION_COORD, default=location_coordinates
             ): cv.boolean,
             vol.Optional(FLOW_SEND_LANG, default=use_lang): cv.boolean,
+            vol.Optional(FLOW_NOTIFY_WARNINGS, default=notify_warnings): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_IMAGES, default=download_images): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_PATH, default=download_path): cv.string,
         }
