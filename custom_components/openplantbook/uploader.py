@@ -1,4 +1,5 @@
 import logging
+import random
 from datetime import timedelta, datetime
 from typing import Any
 
@@ -18,7 +19,10 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback, Event, HassJob
 from homeassistant.helpers import device_registry
 from homeassistant.helpers import entity_registry
-from homeassistant.helpers.event import async_track_time_interval, async_call_later
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_time_change,
+)
 from homeassistant.util import dt
 from json_timeseries import JtsDocument, TsRecord, TimeSeries
 from openplantbook_sdk import ValidationError
@@ -35,7 +39,7 @@ from .const import (
 from .plantbook_exception import OpenPlantbookException
 
 UPLOAD_TIME_INTERVAL = timedelta(days=1)
-UPLOAD_WAIT_AFTER_RESTART = timedelta(minutes=5)
+UPLOAD_WAIT_AFTER_RESTART = timedelta(hours=4)
 STALE_SENSOR_DATA_MAX_AGE = timedelta(hours=24)
 
 _LOGGER = logging.getLogger(__name__)
@@ -649,7 +653,6 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
     upload_sensors = entry.options.get(FLOW_UPLOAD_DATA)
 
     if upload_sensors:
-        _LOGGER.info("Plant-sensors data upload schedule is active")
 
         @callback
         def start_schedule(_event: Event) -> None:
@@ -665,13 +668,24 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
                 ),
             )
 
-            # Upload on UPLOAD_TIME_INTERVAL interval
-            remove_upload_listener = async_track_time_interval(
+            random_seconds = random.Random(entry.entry_id).randrange(
+                int(UPLOAD_TIME_INTERVAL.total_seconds())
+            )
+            hour, remainder = divmod(random_seconds, 3600)
+            minute, second = divmod(remainder, 60)
+            _LOGGER.info(
+                "Plant-sensors daily upload scheduled at %02d:%02d:%02d",
+                hour,
+                minute,
+                second,
+            )
+
+            remove_upload_listener = async_track_time_change(
                 hass,
                 upload_data,
-                UPLOAD_TIME_INTERVAL,
-                name="opb sensors upload daily",
-                cancel_on_shutdown=True,
+                hour=hour,
+                minute=minute,
+                second=second,
             )
             hass.data[DOMAIN]["remove_upload_listener"] = remove_upload_listener
             entry.async_on_unload(remove_upload_listener)

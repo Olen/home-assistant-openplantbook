@@ -5,7 +5,7 @@
 # TODO V: Add support for language parameter
 # TODO V: User notification when no sensors data
 # TODO V: HASS pop up notification with UI option to indicate a particular sensor problem.
-# TODO 1: Randomize time of uploading
+# TODO V: Randomize time of uploading
 # TODO 2: Handle 429 errors
 # TODO 2: Unloading error when delete a plant:
 """

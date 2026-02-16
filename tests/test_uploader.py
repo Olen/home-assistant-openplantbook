@@ -11,6 +11,42 @@ import custom_components.openplantbook.uploader as uploader
 
 import logging
 
+
+@pytest.mark.asyncio
+async def test_async_setup_upload_schedule_random_time():
+    hass = Mock()
+    hass.data = {DOMAIN: {}}
+
+    entry = Mock()
+    entry.options = {uploader.FLOW_UPLOAD_DATA: True}
+    entry.entry_id = "entry-id"
+    entry.async_on_unload = Mock()
+
+    remove_listener = Mock()
+    random_instance = Mock()
+    random_instance.randrange.return_value = 3661
+
+    with patch(
+        "custom_components.openplantbook.uploader.async_call_later"
+    ) as async_call_later_mock, patch(
+        "custom_components.openplantbook.uploader.async_track_time_change",
+        return_value=remove_listener,
+    ) as async_track_time_change_mock, patch(
+        "custom_components.openplantbook.uploader.random.Random",
+        return_value=random_instance,
+    ) as random_mock:
+        await uploader.async_setup_upload_schedule(hass, entry)
+
+    async_call_later_mock.assert_called_once()
+    random_mock.assert_called_once_with(entry.entry_id)
+    args, kwargs = async_track_time_change_mock.call_args
+    assert args[0] == hass
+    assert kwargs["hour"] == 1
+    assert kwargs["minute"] == 1
+    assert kwargs["second"] == 1
+    assert hass.data[DOMAIN]["remove_upload_listener"] == remove_listener
+    entry.async_on_unload.assert_called_once_with(remove_listener)
+
 @pytest.mark.asyncio
 async def test_plant_data_upload_warning_old_data(caplog):
     caplog.set_level(logging.DEBUG)
