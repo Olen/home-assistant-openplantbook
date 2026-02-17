@@ -1,2 +1,5 @@
+"""Exceptions for the OpenPlantbook integration."""
+
+
 class OpenPlantbookException(Exception):
-    pass
+    """Exception raised when OpenPlantbook operations fail."""

@@ -18,7 +18,7 @@
                     "use_ha_language": "Use Home-Assistant language when fetching internationalised plants' common names",
                     "notify_upload_warnings": "Plant-sensors monitoring notifications"
                 },
-                "description": "Upload Plant-sensors data to OpenPlantbook. Please consider enabling it to contribute to a creation of a Worldwide Browsable dataset. More info: https://open.plantbook.io/ui/sensor-data/",
+                "description": "Upload Plant-sensors data to OpenPlantbook. Please consider enabling it to contribute to a creation of a Worldwide Browsable dataset. [More info]({sensor_data_url})",
                 "title": "Plant-sensors data uploading"
             },
             "user": {
@@ -26,7 +26,7 @@
                     "client_id": "Client ID",
                     "client_secret": "Secret"
                 },
-                "description": "Log in to https://open.plantbook.io/apikey/show/ and get you API client id and secret."
+                "description": "Log in to [OpenPlantbook]({apikey_url}) and get your API client id and secret."
             }
         }
     },
@@ -46,7 +46,7 @@
                     "use_ha_language": "Use Home-Assistant language when fetching internationalised plants' common names",
                     "notify_upload_warnings": "Plant-sensors monitoring notifications"
                 },
-                "description": "More information about: Plant-sensors data uploading (https://open.plantbook.io/ui/sensor-data/), Internationalised Common Names (https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names)",
+                "description": "More information about: Plant-sensors data uploading [OpenPlantbook]({sensor_data_url}), Internationalised Common Names (https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names)",
                 "title": "Options"
             }
         }

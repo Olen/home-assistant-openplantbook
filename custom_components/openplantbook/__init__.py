@@ -6,13 +6,16 @@ import logging
 import os
 import re
 import urllib.parse
+from asyncio import timeout as async_timeout
+from datetime import datetime, timedelta
 
 import async_timeout
 from openplantbook_sdk import MissingClientIdOrSecret, OpenPlantBookApi
 from openplantbook_sdk.sdk import RateLimitError
 import voluptuous as vol
-
-from homeassistant import exceptions
+from homeassistant.components.persistent_notification import (
+    create as create_notification,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import (
@@ -22,13 +25,9 @@ from homeassistant.core import (
     SupportsResponse,
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.util import raise_if_invalid_filename, slugify
-
-from homeassistant.components.persistent_notification import (
-    create as create_notification,
-)
+from openplantbook_sdk import MissingClientIdOrSecret, OpenPlantBookApi
 
 from .const import (
     ATTR_ALIAS,
@@ -36,15 +35,17 @@ from .const import (
     ATTR_HOURS,
     ATTR_IMAGE,
     ATTR_SPECIES,
-    ATTR_PLANT_INSTANCE,
     CACHE_TIME,
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
+    FLOW_UPLOAD_DATA,
     OPB_ATTR_RESULTS,
     OPB_ATTR_SEARCH_RESULT,
     OPB_ATTR_TIMESTAMP,
+    OPB_CURRENT_INFO_MESSAGE,
     OPB_DISPLAY_PID,
+    OPB_INFO_MESSAGE,
     OPB_PID,
     OPB_SERVICE_CLEAN_CACHE,
     OPB_SERVICE_GET,
@@ -57,7 +58,7 @@ from .const import (
     FLOW_SEND_LANG,
     PLANTBOOK_BASEURL,
 )
-
+from .plantbook_exception import OpenPlantbookException
 from .uploader import (
     UPLOAD_TIME_INTERVAL,
     UPLOAD_WAIT_AFTER_RESTART,
@@ -65,18 +66,16 @@ from .uploader import (
     plant_data_upload,
 )
 
-from .plantbook_exception import OpenPlantbookException
-
 CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup(hass: HomeAssistant, config: dict):
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the OpenPlantBook component."""
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OpenPlantBook from a config entry."""
 
     if DOMAIN not in hass.data:
@@ -122,9 +121,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             )
 
         # Here we try to ensure that we only run one API request for each species
-        # The first process creates an empty dict, and access the API
+        # The first process creates an empty dict, and accesses the API
         # Later requests for the same species either wait for the first one to complete
-        # or they returns immediately if we already have the data we need
+        # or they return immediately if we already have the data we need
         _LOGGER.debug("get_plant %s", species)
         if species not in hass.data[DOMAIN][ATTR_SPECIES]:
             _LOGGER.debug("I am the first process to get %s", species)
@@ -221,7 +220,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             wait = 0
             while OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
                 _LOGGER.debug("Waiting")
-                wait = wait + 1
+                wait += 1
                 if wait == 10:
                     _LOGGER.error("Giving up waiting for OpenPlantBook")
                     raise OpenPlantbookException(
@@ -248,7 +247,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         alias = call.data.get(ATTR_ALIAS)
         if alias is None:
             raise OpenPlantbookException(
-                "invalid service call, required attribute %s missing", alias
+                "invalid service call, required attribute %s missing", ATTR_ALIAS
             )
 
         _LOGGER.info("Searching for %s", alias)
@@ -305,20 +304,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     hass.states.async_remove(entity_id)
                     hass.data[DOMAIN][ATTR_SPECIES].pop(species)
 
-    async def async_download_image(url, download_to):
+    def _write_file(path: str, data: bytes) -> None:
+        """Write binary data to a file (runs in executor)."""
+        with open(path, "wb") as fil:
+            fil.write(data)
+
+    async def async_download_image(url: str, download_to: str) -> str | bool:
         _LOGGER.debug(
             "Going to download image %s to %s",
             url,
             download_to,
         )
-        if os.path.isfile(download_to):
+        if await hass.async_add_executor_job(os.path.isfile, download_to):
             _LOGGER.warning(
                 "File %s already exists. Will not download again", download_to
             )
             return download_to
         websession = async_get_clientsession(hass)
 
-        with async_timeout.timeout(10):
+        async with async_timeout(10):
             resp = await websession.get(url)
             if resp.status != 200:
                 _LOGGER.warning(
@@ -327,14 +331,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 return False
 
         data = await resp.read()
-        try:
-            with open(download_to, "wb") as fil:
-                fil.write(data)
-        except OSError as err:
-            _LOGGER.warning(
-                "Failed to write downloaded image to %s: %s", download_to, err
-            )
-            return False
+        await hass.async_add_executor_job(_write_file, download_to, data)
 
         _LOGGER.debug("Downloading of %s done", url)
         return download_to
@@ -365,7 +362,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading %s", DOMAIN)
     _LOGGER.debug("Removing cache")
@@ -389,7 +386,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 
 async def config_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle component's options update"""
+    """Handle component's options update."""
     # await hass.config_entries.async_reload(entry.entry_id)
 
     _LOGGER.debug("Options update: %s, %s", entry.entry_id, entry.options)
