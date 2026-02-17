@@ -6,20 +6,8 @@
 # TODO V: User notification when no sensors data
 # TODO V: HASS pop up notification with UI option to indicate a particular sensor problem.
 # TODO V: Randomize time of uploading
-# TODO 2: Handle 429 errors
-# TODO 2: Unloading error when delete a plant:
-"""
-Traceback (most recent call last):
-  File "/mnt/c/Users/slaxor-dev/dev/opb-project/hass/core/homeassistant/config_entries.py", line 975, in async_unload
-    result = await component.async_unload_entry(hass, self)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Users/slaxor-dev/dev/opb-project/hass/core/config/custom_components/plant/__init__.py", line 265, in async_unload_entry
-    unload_ok = await hass.config_entries.async_forward_entry_unload(entry, PLATFORMS)
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/mnt/c/Users/slaxor-dev/dev/opb-project/hass/core/homeassistant/config_entries.py", line 2686, in async_forward_entry_unload
-    if domain not in self.hass.config.components:
-       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: unhashable type: 'list'
-"""
+# TODO V: Handle 429 errors
+# TODO V: Add one-off message about new features: Language and monitoring
+
 
 

@@ -8,6 +8,7 @@ from homeassistant.util import dt
 from custom_components.openplantbook.uploader import plant_data_upload
 from custom_components.openplantbook.const import DOMAIN, ATTR_API, FLOW_NOTIFY_WARNINGS
 import custom_components.openplantbook.uploader as uploader
+from openplantbook_sdk.sdk import RateLimitError
 
 import logging
 
@@ -46,6 +47,41 @@ async def test_async_setup_upload_schedule_random_time():
     assert kwargs["second"] == 1
     assert hass.data[DOMAIN]["remove_upload_listener"] == remove_listener
     entry.async_on_unload.assert_called_once_with(remove_listener)
+
+
+@pytest.mark.asyncio
+async def test_async_setup_upload_schedule_rate_limit_skips_cycle(caplog):
+    caplog.set_level(logging.WARNING)
+    hass = Mock()
+    hass.data = {DOMAIN: {}}
+
+    entry = Mock()
+    entry.options = {uploader.FLOW_UPLOAD_DATA: True}
+    entry.entry_id = "entry-id"
+    entry.async_on_unload = Mock()
+
+    remove_listener = Mock()
+    random_instance = Mock()
+    random_instance.randrange.return_value = 1
+
+    with (
+        patch("custom_components.openplantbook.uploader.async_call_later"),
+        patch("custom_components.openplantbook.uploader.random.Random", return_value=random_instance),
+        patch(
+            "custom_components.openplantbook.uploader.async_track_time_change",
+            return_value=remove_listener,
+        ) as async_track_time_change_mock,
+        patch(
+            "custom_components.openplantbook.uploader.plant_data_upload",
+            new=AsyncMock(side_effect=RateLimitError()),
+        ),
+    ):
+        await uploader.async_setup_upload_schedule(hass, entry)
+
+        upload_data = async_track_time_change_mock.call_args[0][1]
+        await upload_data(dt_util.now(dt.UTC))
+
+    assert "Rate limit reached during scheduled upload" in caplog.text
 
 @pytest.mark.asyncio
 async def test_plant_data_upload_warning_old_data(caplog):
