@@ -37,6 +37,11 @@ from .const import (
 )
 
 TITLE = "title"
+DESCRIPTION_PLACEHOLDERS = {
+    "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/",
+    "common_names_url": "https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names",
+    "apikey_url": "https://open.plantbook.io/apikey/show/",
+}
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -122,9 +127,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=DATA_SCHEMA,
             errors=errors,
-            description_placeholders={
-                "apikey_url": "https://open.plantbook.io/apikey/show/"
-            },
+            description_placeholders=DESCRIPTION_PLACEHOLDERS,
         )
 
     async def async_step_upload(
@@ -152,9 +155,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="upload",
             data_schema=UPLOAD_SCHEMA,
             errors=errors,
-            description_placeholders={
-                "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/"
-            },
+            description_placeholders=DESCRIPTION_PLACEHOLDERS,
         )
 
 
@@ -221,9 +222,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             data_schema=vol.Schema(data_schema),
             errors=self.errors,
-            description_placeholders={
-                "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/"
-            },
+            description_placeholders=DESCRIPTION_PLACEHOLDERS,
         )
 
     async def validate_input(self, user_input: dict) -> bool:

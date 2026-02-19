@@ -26,7 +26,9 @@ pytestmark = pytest.mark.enable_socket
 @pytest.mark.asyncio
 async def test_get_service_handles_permission_error_from_api(hass):
     api = AsyncMock()
-    api.async_plant_detail_get = AsyncMock(side_effect=PermissionError("Authentication failed"))
+    api.async_plant_detail_get = AsyncMock(
+        side_effect=PermissionError("Authentication failed")
+    )
 
     with patch("custom_components.openplantbook.OpenPlantBookApi", return_value=api):
         entry = MockConfigEntry(
@@ -67,7 +69,10 @@ async def test_get_service_handles_permission_error_when_writing_image(hass):
 
     with (
         patch("custom_components.openplantbook.OpenPlantBookApi", return_value=api),
-        patch("custom_components.openplantbook.async_get_clientsession", return_value=websession),
+        patch(
+            "custom_components.openplantbook.async_get_clientsession",
+            return_value=websession,
+        ),
         patch("custom_components.openplantbook.os.path.isfile", return_value=False),
         patch("builtins.open", side_effect=PermissionError("no permission")),
     ):

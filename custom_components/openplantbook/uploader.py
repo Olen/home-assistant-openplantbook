@@ -303,9 +303,9 @@ async def plant_data_upload(
             # Keep track of the latest upload info to use in the warning logic
             latest_data_opb_response = res[0].get("latest_data")
             if latest_data_opb_response:
-                latest_data_opb_response = dt_util.parse_datetime(latest_data_opb_response).astimezone(
-                    dt.UTC
-                )
+                latest_data_opb_response = dt_util.parse_datetime(
+                    latest_data_opb_response
+                ).astimezone(dt.UTC)
                 opb_data_age = now_utc - latest_data_opb_response
             else:
                 opb_data_age = None
@@ -324,13 +324,18 @@ async def plant_data_upload(
         # Get oldest latest_data timestamp into lastest_upload_timestamp
         if isinstance(latest_data_opb_response, datetime):
 
-            if (not lastest_upload_timestamp) or (lastest_upload_timestamp < latest_data_opb_response):
+            if (not lastest_upload_timestamp) or (
+                lastest_upload_timestamp < latest_data_opb_response
+            ):
                 lastest_upload_timestamp = latest_data_opb_response
 
-                _LOGGER.debug(f"Using lastest_upload_timestamp from OPB (in UTC): {lastest_upload_timestamp}")
+                _LOGGER.debug(
+                    f"Using lastest_upload_timestamp from OPB (in UTC): {lastest_upload_timestamp}"
+                )
 
-
-            query_period_start_timestamp = latest_data_opb_response + timedelta(seconds=1)
+            query_period_start_timestamp = latest_data_opb_response + timedelta(
+                seconds=1
+            )
 
             # If last upload was more than 7 days ago then only take last 7 days
             if query_period_end_timestamp - query_period_start_timestamp > timedelta(
@@ -448,7 +453,10 @@ async def plant_data_upload(
                 # fall back to the last known state change to determine staleness.
                 if sensor_latest_queried_utc is None:
 
-                    _LOGGER.debug(">>> No meaningful states found for sensor: %s <<<" % sensor_entry.entity_id)
+                    _LOGGER.debug(
+                        ">>> No meaningful states found for sensor: %s <<<"
+                        % sensor_entry.entity_id
+                    )
 
                     last_change = await get_instance(hass).async_add_executor_job(
                         get_last_state_changes, hass, 1, sensor_entry.entity_id
@@ -530,7 +538,9 @@ async def plant_data_upload(
     ):
         stale_threshold_minutes = int(STALE_SENSOR_DATA_MAX_AGE.total_seconds() // 60)
 
-        def format_opb_latest(latest_data: datetime | None, opb_age: timedelta | None) -> str:
+        def format_opb_latest(
+            latest_data: datetime | None, opb_age: timedelta | None
+        ) -> str:
             latest_text = (
                 dt_util.as_local(latest_data).strftime("%Y-%m-%d %H:%M:%S")
                 if isinstance(latest_data, datetime)

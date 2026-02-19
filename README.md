@@ -10,12 +10,25 @@ Connects Home Assistant to the [OpenPlantbook API](https://open.plantbook.io/) f
 ## 📑 Table of Contents
 
 - [🌿 OpenPlantbook Integration for Home Assistant](#-openplantbook-integration-for-home-assistant)
+  - [🆕 What's New](#-whats-new)
   - [📦 Installation](#-installation)
   - [🔧 Setup](#-setup)
   - [⚙️ Configuration Options](#️-configuration-options)
+    - [📤 Upload Plant Sensor Data](#-upload-plant-sensor-data)
+    - [🔔 Sensors Monitoring](#-sensors-monitoring)
+    - [🌍 Share Location](#-share-location)
+    - [🌐 International Common Names](#-international-common-names)
+    - [🖼️ Automatically Download Images](#️-automatically-download-images)
   - [📡 Actions (Service Calls)](#-actions-service-calls)
   - [🖥️ GUI Example](#️-gui-example)
   - [☕ Support](#-support)
+
+---
+
+## 🆕 What's New in version 1.4
+
+- **Sensor monitoring warnings** — Stale or missing sensor updates are flagged during upload runs; details and optional notifications in [🔔 Sensors Monitoring](#-sensors-monitoring).
+- **International common names** — OpenPlantbook can return common names in your Home Assistant language. See [🌐 International Common Names](#-international-common-names).
 
 ---
 
@@ -62,6 +75,26 @@ When enabled, the integration periodically (once a day) uploads sensor data from
 - First upload: last 24 hours of data
 - If sensors are disconnected, it retries daily for up to 7 days of historical data
 - Can also be triggered manually via the `openplantbook.upload` action
+- Daily uploads are scheduled at a randomized time-of-day per installation (stable for a given config entry) to even load distribution
+
+**Configure in UI:**
+- Go to **Settings** → **Devices & Services** → **OpenPlantbook** → **Configure**.
+- Enable **Upload plant sensor data**.
+- Enable **Plant-sensors monitoring notifications** to surface stale-sensor warnings as HA notifications (requires upload to be enabled).
+
+### 🔔 Sensors Monitoring
+
+Sensor monitoring runs during upload processing (scheduled daily or manual `openplantbook.upload`). For each plant sensor it:
+
+- Looks at recorder history for the upload window and captures the latest *valid* state (ignores `unknown`/`unavailable`).
+- If no valid states were found in the window, it falls back to the entity’s last known state change to determine staleness.
+
+Warnings are emitted when:
+
+- **Stale data**: the latest valid update is older than **24 hours**.
+- **No valid data**: all recent states are `unknown`/`unavailable` and no last valid state can be determined.
+
+If **Plant-sensors monitoring notifications** is enabled (requires upload enabled), the integration also posts a grouped Home Assistant notification per upload run, including the affected plant, each sensor entity, and the latest OpenPlantbook cloud data timestamp/age for context.
 
 ### 🌍 Share Location
 
@@ -80,6 +113,12 @@ Location is configured in HA under **Settings** → **System** → **General**.
 > Enable DEBUG logging for the integration to see exactly what data is being shared.
 >
 > ![Debug logging](./images/debug-logging.png)
+
+### 🌐 International Common Names
+
+When enabled, the integration sends your Home Assistant language to OpenPlantbook so the API can return common names in that language when available.
+
+[More information about this Open Plantbook feature](https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names).
 
 ### 🖼️ Automatically Download Images
 
@@ -180,6 +219,10 @@ For a full walkthrough with helpers, automations, and Lovelace cards, see **[exa
 
 ## ☕ Support
 
+* Olen's work by 
 <a href="https://www.buymeacoffee.com/olatho" target="_blank">
 <img src="https://user-images.githubusercontent.com/203184/184674974-db7b9e53-8c5a-40a0-bf71-c01311b36b0a.png" style="height: 50px !important;">
 </a>
+
+* Open Plantbook by adding a new plant to its data base and sharing your sensors data.
+

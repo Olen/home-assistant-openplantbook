@@ -1,16 +1,412 @@
-
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
-from datetime import timedelta, datetime
-from types import SimpleNamespace
-import homeassistant.util.dt as dt_util
-from homeassistant.util import dt
-from custom_components.openplantbook.uploader import plant_data_upload
-from custom_components.openplantbook.const import DOMAIN, ATTR_API, FLOW_NOTIFY_WARNINGS
-import custom_components.openplantbook.uploader as uploader
-from openplantbook_sdk.sdk import RateLimitError
+from __future__ import annotations
 
 import logging
+from datetime import timedelta, datetime
+from types import SimpleNamespace
+from unittest.mock import Mock
+from unittest.mock import patch, AsyncMock
+
+import homeassistant.util.dt as dt_util
+import pytest
+from homeassistant.const import (
+    LIGHT_LUX,
+    PERCENTAGE,
+    UnitOfConductivity,
+    UnitOfTemperature,
+)
+from homeassistant.util import dt
+from openplantbook_sdk.sdk import RateLimitError
+
+import custom_components.openplantbook.uploader as uploader
+from custom_components.openplantbook.const import DOMAIN, ATTR_API, FLOW_NOTIFY_WARNINGS
+from custom_components.openplantbook.uploader import get_supported_state_value
+from custom_components.openplantbook.uploader import plant_data_upload
+
+
+class TestGetSupportedStateValue:
+    """Tests for get_supported_state_value function."""
+
+    @pytest.mark.parametrize(
+        "state, expected_value, expected_error",
+        [
+            # Test temperature in Fahrenheit - converts to Celsius
+            (
+                Mock(
+                    state="77",
+                    attributes={
+                        "device_class": "temperature",
+                        "unit_of_measurement": UnitOfTemperature.FAHRENHEIT,
+                    },
+                ),
+                25,
+                None,
+            ),
+            # Test temperature in Kelvin - converts to Celsius
+            (
+                Mock(
+                    state="300",
+                    attributes={
+                        "device_class": "temperature",
+                        "unit_of_measurement": UnitOfTemperature.KELVIN,
+                    },
+                ),
+                27,
+                None,
+            ),
+            # Test temperature in Celsius - valid range
+            (
+                Mock(
+                    state="25",
+                    attributes={
+                        "device_class": "temperature",
+                        "unit_of_measurement": UnitOfTemperature.CELSIUS,
+                    },
+                ),
+                25,
+                None,
+            ),
+            # Test temperature out of range (too high)
+            (
+                Mock(
+                    state="200",
+                    attributes={
+                        "device_class": "temperature",
+                        "unit_of_measurement": UnitOfTemperature.CELSIUS,
+                    },
+                ),
+                200,
+                "temperature",
+            ),
+            # Test temperature out of range (too low)
+            (
+                Mock(
+                    state="-60",
+                    attributes={
+                        "device_class": "temperature",
+                        "unit_of_measurement": UnitOfTemperature.CELSIUS,
+                    },
+                ),
+                -60,
+                "temperature",
+            ),
+            # Test unsupported temperature unit
+            (
+                Mock(
+                    state="25",
+                    attributes={
+                        "device_class": "temperature",
+                        "unit_of_measurement": "unknown",
+                    },
+                ),
+                25,
+                "temperature",
+            ),
+        ],
+    )
+    def test_temperature_conversion(self, state, expected_value, expected_error):
+        """Test temperature value handling and conversions."""
+        value, error = get_supported_state_value(state)
+        assert value == expected_value
+        assert error == expected_error
+
+    @pytest.mark.parametrize(
+        "state, expected_value, expected_error",
+        [
+            # Test humidity valid
+            (
+                Mock(
+                    state="50",
+                    attributes={
+                        "device_class": "humidity",
+                        "unit_of_measurement": PERCENTAGE,
+                    },
+                ),
+                50,
+                None,
+            ),
+            # Test humidity at boundary (0%)
+            (
+                Mock(
+                    state="0",
+                    attributes={
+                        "device_class": "humidity",
+                        "unit_of_measurement": PERCENTAGE,
+                    },
+                ),
+                0,
+                None,
+            ),
+            # Test humidity at boundary (100%)
+            (
+                Mock(
+                    state="100",
+                    attributes={
+                        "device_class": "humidity",
+                        "unit_of_measurement": PERCENTAGE,
+                    },
+                ),
+                100,
+                None,
+            ),
+            # Test humidity out of range
+            (
+                Mock(
+                    state="150",
+                    attributes={
+                        "device_class": "humidity",
+                        "unit_of_measurement": PERCENTAGE,
+                    },
+                ),
+                150,
+                "humidity",
+            ),
+            # Test unsupported humidity unit
+            (
+                Mock(
+                    state="50",
+                    attributes={
+                        "device_class": "humidity",
+                        "unit_of_measurement": "unknown",
+                    },
+                ),
+                50,
+                "humidity",
+            ),
+        ],
+    )
+    def test_humidity_handling(self, state, expected_value, expected_error):
+        """Test humidity value handling."""
+        value, error = get_supported_state_value(state)
+        assert value == expected_value
+        assert error == expected_error
+
+    @pytest.mark.parametrize(
+        "state, expected_value, expected_error",
+        [
+            # Test illuminance valid
+            (
+                Mock(
+                    state="1000",
+                    attributes={
+                        "device_class": "illuminance",
+                        "unit_of_measurement": LIGHT_LUX,
+                    },
+                ),
+                1000,
+                None,
+            ),
+            # Test illuminance at boundary (0 lx)
+            (
+                Mock(
+                    state="0",
+                    attributes={
+                        "device_class": "illuminance",
+                        "unit_of_measurement": LIGHT_LUX,
+                    },
+                ),
+                0,
+                None,
+            ),
+            # Test illuminance at boundary (200000 lx)
+            (
+                Mock(
+                    state="200000",
+                    attributes={
+                        "device_class": "illuminance",
+                        "unit_of_measurement": LIGHT_LUX,
+                    },
+                ),
+                200000,
+                None,
+            ),
+            # Test illuminance out of range
+            (
+                Mock(
+                    state="300000",
+                    attributes={
+                        "device_class": "illuminance",
+                        "unit_of_measurement": LIGHT_LUX,
+                    },
+                ),
+                300000,
+                "illuminance",
+            ),
+            # Test unsupported illuminance unit
+            (
+                Mock(
+                    state="1000",
+                    attributes={
+                        "device_class": "illuminance",
+                        "unit_of_measurement": "unknown",
+                    },
+                ),
+                1000,
+                "illuminance",
+            ),
+        ],
+    )
+    def test_illuminance_handling(self, state, expected_value, expected_error):
+        """Test illuminance value handling."""
+        value, error = get_supported_state_value(state)
+        assert value == expected_value
+        assert error == expected_error
+
+    @pytest.mark.parametrize(
+        "state, expected_value, expected_error",
+        [
+            # Test moisture valid
+            (
+                Mock(
+                    state="30",
+                    attributes={
+                        "device_class": "moisture",
+                        "unit_of_measurement": PERCENTAGE,
+                    },
+                ),
+                30,
+                None,
+            ),
+            # Test moisture out of range
+            (
+                Mock(
+                    state="150",
+                    attributes={
+                        "device_class": "moisture",
+                        "unit_of_measurement": PERCENTAGE,
+                    },
+                ),
+                150,
+                "moisture",
+            ),
+            # Test unsupported moisture unit
+            (
+                Mock(
+                    state="30",
+                    attributes={
+                        "device_class": "moisture",
+                        "unit_of_measurement": "unknown",
+                    },
+                ),
+                30,
+                "moisture",
+            ),
+        ],
+    )
+    def test_moisture_handling(self, state, expected_value, expected_error):
+        """Test moisture value handling."""
+        value, error = get_supported_state_value(state)
+        assert value == expected_value
+        assert error == expected_error
+
+    @pytest.mark.parametrize(
+        "state, expected_value, expected_error",
+        [
+            # Test conductivity valid
+            (
+                Mock(
+                    state="500",
+                    attributes={
+                        "device_class": "conductivity",
+                        "unit_of_measurement": UnitOfConductivity.MICROSIEMENS_PER_CM,
+                    },
+                ),
+                500,
+                None,
+            ),
+            # Test conductivity at boundary (0)
+            (
+                Mock(
+                    state="0",
+                    attributes={
+                        "device_class": "conductivity",
+                        "unit_of_measurement": UnitOfConductivity.MICROSIEMENS_PER_CM,
+                    },
+                ),
+                0,
+                None,
+            ),
+            # Test conductivity at boundary (3000)
+            (
+                Mock(
+                    state="3000",
+                    attributes={
+                        "device_class": "conductivity",
+                        "unit_of_measurement": UnitOfConductivity.MICROSIEMENS_PER_CM,
+                    },
+                ),
+                3000,
+                None,
+            ),
+            # Test conductivity out of range
+            (
+                Mock(
+                    state="5000",
+                    attributes={
+                        "device_class": "conductivity",
+                        "unit_of_measurement": UnitOfConductivity.MICROSIEMENS_PER_CM,
+                    },
+                ),
+                5000,
+                "conductivity",
+            ),
+            # Test unsupported conductivity unit
+            (
+                Mock(
+                    state="500",
+                    attributes={
+                        "device_class": "conductivity",
+                        "unit_of_measurement": "unknown",
+                    },
+                ),
+                500,
+                "conductivity",
+            ),
+        ],
+    )
+    def test_conductivity_handling(self, state, expected_value, expected_error):
+        """Test conductivity value handling."""
+        value, error = get_supported_state_value(state)
+        assert value == expected_value
+        assert error == expected_error
+
+    def test_unsupported_device_class(self):
+        """Test handling of unsupported device class."""
+        state = Mock(
+            state="50",
+            attributes={
+                "device_class": "unsupported",
+                "unit_of_measurement": PERCENTAGE,
+            },
+        )
+        value, error = get_supported_state_value(state)
+        assert value == 50
+        assert error == "device_class"
+
+    def test_invalid_state_non_numeric(self):
+        """Test handling of non-numeric state values."""
+        state = Mock(
+            state="invalid_state",
+            attributes={
+                "device_class": "moisture",
+                "unit_of_measurement": PERCENTAGE,
+            },
+        )
+        value, error = get_supported_state_value(state)
+        assert value is None
+        assert error == "moisture"
+
+    def test_float_state_rounded(self):
+        """Test that float state values are rounded to integers."""
+        state = Mock(
+            state="25.7",
+            attributes={
+                "device_class": "temperature",
+                "unit_of_measurement": UnitOfTemperature.CELSIUS,
+            },
+        )
+        value, error = get_supported_state_value(state)
+        assert value == 26
+        assert error is None
 
 
 @pytest.mark.asyncio
@@ -27,15 +423,19 @@ async def test_async_setup_upload_schedule_random_time():
     random_instance = Mock()
     random_instance.randrange.return_value = 3661
 
-    with patch(
-        "custom_components.openplantbook.uploader.async_call_later"
-    ) as async_call_later_mock, patch(
-        "custom_components.openplantbook.uploader.async_track_time_change",
-        return_value=remove_listener,
-    ) as async_track_time_change_mock, patch(
-        "custom_components.openplantbook.uploader.random.Random",
-        return_value=random_instance,
-    ) as random_mock:
+    with (
+        patch(
+            "custom_components.openplantbook.uploader.async_call_later"
+        ) as async_call_later_mock,
+        patch(
+            "custom_components.openplantbook.uploader.async_track_time_change",
+            return_value=remove_listener,
+        ) as async_track_time_change_mock,
+        patch(
+            "custom_components.openplantbook.uploader.random.Random",
+            return_value=random_instance,
+        ) as random_mock,
+    ):
         await uploader.async_setup_upload_schedule(hass, entry)
 
     async_call_later_mock.assert_called_once()
@@ -66,7 +466,10 @@ async def test_async_setup_upload_schedule_rate_limit_skips_cycle(caplog):
 
     with (
         patch("custom_components.openplantbook.uploader.async_call_later"),
-        patch("custom_components.openplantbook.uploader.random.Random", return_value=random_instance),
+        patch(
+            "custom_components.openplantbook.uploader.random.Random",
+            return_value=random_instance,
+        ),
         patch(
             "custom_components.openplantbook.uploader.async_track_time_change",
             return_value=remove_listener,
@@ -83,6 +486,7 @@ async def test_async_setup_upload_schedule_rate_limit_skips_cycle(caplog):
 
     assert "Rate limit reached during scheduled upload" in caplog.text
 
+
 @pytest.mark.asyncio
 async def test_plant_data_upload_warning_old_data(caplog):
     caplog.set_level(logging.DEBUG)
@@ -92,68 +496,84 @@ async def test_plant_data_upload_warning_old_data(caplog):
     hass.config = Mock()
     hass.services = Mock()
     hass.services.async_call = AsyncMock()
-    
+
     # Mock hass.data
     api_mock = AsyncMock()
     hass.data[DOMAIN] = {ATTR_API: api_mock}
-    
+
     # Mock entry
     entry = Mock()
     entry.options = {}
-    
+
     # Mock device registry
     device = Mock()
-    # identifiers must be a set of tuples for Home Assistant device registry usually, 
+    # identifiers must be a set of tuples for Home Assistant device registry usually,
     # but the code does: if "plant" in str(d.identifiers)
     device.identifiers = {("plant", "something")}
     device.name_by_user = None
     device.id = "device_id"
     device.name = "My Plant"
     device.model = "Plant Model"
-    
+
     device_reg = Mock()
     device_reg.devices.data = {"device_id": device}
-    
+
     # Mock entity registry
     plant_entity_entry = Mock()
     plant_entity_entry.domain = "plant"
     plant_entity_entry.entity_id = "plant.my_plant"
-    
+
     entity_reg = Mock()
-    
+
     # Mock recorder
-    with patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg), \
-         patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg), \
-         patch("custom_components.openplantbook.uploader.entity_registry.async_entries_for_device", return_value=[plant_entity_entry]), \
-         patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance:
-        
+    with (
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
+            return_value=[plant_entity_entry],
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
+    ):
+
         mock_recorder = Mock()
         mock_get_instance.return_value = mock_recorder
-        
+
         # Mock get_last_state_changes for plant entity
         plant_state = Mock()
         # The code expects plant_device_state[plant_entity_id][0].attributes["species_original"]
         plant_state.attributes = {"species_original": "capsicum annuum"}
-        
+
         # We need to mock the async_add_executor_job to return a coroutine or use AsyncMock
-        mock_recorder.async_add_executor_job = AsyncMock(return_value={"plant.my_plant": [plant_state]})
-        
+        mock_recorder.async_add_executor_job = AsyncMock(
+            return_value={"plant.my_plant": [plant_state]}
+        )
+
         # Mock SDK response
         now = dt_util.now(dt.UTC)
         last_upload = now - timedelta(days=5)
         api_mock.async_plant_instance_register.return_value = [
-            {
-                "id": "opb_id",
-                "latest_data": last_upload.isoformat()
-            }
+            {"id": "opb_id", "latest_data": last_upload.isoformat()}
         ]
-        
+
         # Ensure we are using UTC for everything
         with patch("homeassistant.util.dt.now", return_value=now):
             await plant_data_upload(hass, entry)
-        
-        assert "The last time plant sensors data was successfully uploaded 5 days ago" in caplog.text
+
+        assert (
+            "The last time plant sensors data was successfully uploaded 5 days ago"
+            in caplog.text
+        )
         assert any(record.levelname == "WARNING" for record in caplog.records)
+
 
 @pytest.mark.asyncio
 async def test_plant_data_upload_warning_never_uploaded_sunday(caplog):
@@ -164,15 +584,15 @@ async def test_plant_data_upload_warning_never_uploaded_sunday(caplog):
     hass.config = Mock()
     hass.services = Mock()
     hass.services.async_call = AsyncMock()
-    
+
     # Mock hass.data
     api_mock = AsyncMock()
     hass.data[DOMAIN] = {ATTR_API: api_mock}
-    
+
     # Mock entry
     entry = Mock()
     entry.options = {}
-    
+
     # Mock device registry
     device = Mock()
     device.identifiers = {("plant", "something")}
@@ -180,45 +600,57 @@ async def test_plant_data_upload_warning_never_uploaded_sunday(caplog):
     device.id = "device_id"
     device.name = "My Plant"
     device.model = "Plant Model"
-    
+
     device_reg = Mock()
     device_reg.devices.data = {"device_id": device}
-    
+
     # Mock entity registry
     plant_entity_entry = Mock()
     plant_entity_entry.domain = "plant"
     plant_entity_entry.entity_id = "plant.my_plant"
-    
+
     entity_reg = Mock()
-    
+
     # Mock recorder
-    with patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg), \
-         patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg), \
-         patch("custom_components.openplantbook.uploader.entity_registry.async_entries_for_device", return_value=[plant_entity_entry]), \
-         patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance:
-        
+    with (
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
+            return_value=[plant_entity_entry],
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
+    ):
+
         mock_recorder = Mock()
         mock_get_instance.return_value = mock_recorder
-        
+
         # Mock get_last_state_changes for plant entity
         plant_state = Mock()
         plant_state.attributes = {"species_original": "capsicum annuum"}
-        
-        mock_recorder.async_add_executor_job = AsyncMock(return_value={"plant.my_plant": [plant_state]})
-        
+
+        mock_recorder.async_add_executor_job = AsyncMock(
+            return_value={"plant.my_plant": [plant_state]}
+        )
+
         # Mock SDK response with no latest_data
         api_mock.async_plant_instance_register.return_value = [
-            {
-                "id": "opb_id",
-                "latest_data": None
-            }
+            {"id": "opb_id", "latest_data": None}
         ]
-        
+
         # Mock now to be a Sunday (2026-01-25 is a Sunday)
         sunday = datetime(2026, 1, 25, tzinfo=dt.UTC)
         with patch("homeassistant.util.dt.now", return_value=sunday):
             await plant_data_upload(hass, entry)
-        
+
         assert "Plants sensors data has never been uploaded successfully" in caplog.text
         assert any(record.levelname == "WARNING" for record in caplog.records)
 
@@ -259,17 +691,32 @@ async def test_plant_data_upload_registration_none_response_logs_error(caplog):
     entity_reg = Mock()
 
     # Mock recorder
-    with patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg), \
-         patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg), \
-         patch("custom_components.openplantbook.uploader.entity_registry.async_entries_for_device", return_value=[plant_entity_entry]), \
-         patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance:
+    with (
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
+            return_value=[plant_entity_entry],
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
+    ):
 
         mock_recorder = Mock()
         mock_get_instance.return_value = mock_recorder
 
         plant_state = Mock()
         plant_state.attributes = {"species_original": "capsicum annuum"}
-        mock_recorder.async_add_executor_job = AsyncMock(return_value={"plant.my_plant": [plant_state]})
+        mock_recorder.async_add_executor_job = AsyncMock(
+            return_value={"plant.my_plant": [plant_state]}
+        )
 
         # Simulate SDK returning None (e.g. unauthorized) without raising
         api_mock.async_plant_instance_register.return_value = None
@@ -284,7 +731,9 @@ async def test_plant_data_upload_registration_none_response_logs_error(caplog):
 
 
 @pytest.mark.asyncio
-async def test_plant_data_upload_warns_when_sensor_last_update_is_stale_via_fallback(caplog):
+async def test_plant_data_upload_warns_when_sensor_last_update_is_stale_via_fallback(
+    caplog,
+):
     caplog.set_level(logging.DEBUG)
 
     hass = Mock()
@@ -347,13 +796,21 @@ async def test_plant_data_upload_warns_when_sensor_last_update_is_stale_via_fall
         raise AssertionError(f"Unexpected executor job: {func}")
 
     with (
-        patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg),
-        patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg),
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
         patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
             return_value=[plant_entity_entry, sensor_entity_entry],
         ),
-        patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance,
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
     ):
         mock_recorder = Mock()
         mock_recorder.async_add_executor_job = AsyncMock(
@@ -434,13 +891,21 @@ async def test_plant_data_upload_does_not_warn_when_sensor_is_fresh(caplog):
         raise AssertionError(f"Unexpected executor job: {func}")
 
     with (
-        patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg),
-        patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg),
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
         patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
             return_value=[plant_entity_entry, sensor_entity_entry],
         ),
-        patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance,
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
     ):
         mock_recorder = Mock()
         mock_recorder.async_add_executor_job = AsyncMock(
@@ -523,13 +988,21 @@ async def test_plant_data_upload_warns_when_stale_state_is_seen_in_history(caplo
         raise AssertionError(f"Unexpected executor job: {func}")
 
     with (
-        patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg),
-        patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg),
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
         patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
             return_value=[plant_entity_entry, sensor_entity_entry],
         ),
-        patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance,
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
     ):
         mock_recorder = Mock()
         mock_recorder.async_add_executor_job = AsyncMock(
@@ -548,7 +1021,6 @@ async def test_plant_data_upload_warns_when_stale_state_is_seen_in_history(caplo
     assert "sensor.temp" in caplog.text
     assert "stale data" in caplog.text
     assert any(record.levelname == "WARNING" for record in caplog.records)
-
 
 
 @pytest.mark.asyncio
@@ -612,22 +1084,39 @@ async def test_notification_stale_sensor_enabled():
         raise AssertionError(f"Unexpected executor job: {func}")
 
     with (
-        patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg),
-        patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg),
-        patch("custom_components.openplantbook.uploader.entity_registry.async_entries_for_device", return_value=[plant_entity_entry, sensor_entity_entry]),
-        patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance,
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
+            return_value=[plant_entity_entry, sensor_entity_entry],
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
     ):
         mock_recorder = Mock()
-        mock_recorder.async_add_executor_job = AsyncMock(side_effect=async_add_executor_job_side_effect)
+        mock_recorder.async_add_executor_job = AsyncMock(
+            side_effect=async_add_executor_job_side_effect
+        )
         mock_get_instance.return_value = mock_recorder
-        api_mock.async_plant_instance_register.return_value = [{"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}]
+        api_mock.async_plant_instance_register.return_value = [
+            {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
+        ]
 
         with patch("homeassistant.util.dt.now", return_value=now):
             await plant_data_upload(hass, entry)
 
     hass.services.async_call.assert_called()
     calls = hass.services.async_call.call_args_list
-    notification_calls = [c for c in calls if c[0][0] == "persistent_notification" and c[0][1] == "create"]
+    notification_calls = [
+        c for c in calls if c[0][0] == "persistent_notification" and c[0][1] == "create"
+    ]
     assert len(notification_calls) == 1
     notification_data = notification_calls[0][0][2]
     assert notification_data["title"] == "OpenPlantbook: Sensor Data Warnings"
@@ -710,13 +1199,21 @@ async def test_notification_combines_multiple_sensors():
         raise AssertionError(f"Unexpected executor job: {func}")
 
     with (
-        patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg),
-        patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg),
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
         patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
             return_value=[plant_entity_entry, temp_sensor_entry, moisture_sensor_entry],
         ),
-        patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance,
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
     ):
         mock_recorder = Mock()
         mock_recorder.async_add_executor_job = AsyncMock(
@@ -732,9 +1229,7 @@ async def test_notification_combines_multiple_sensors():
 
     calls = hass.services.async_call.call_args_list
     notification_calls = [
-        c
-        for c in calls
-        if c[0][0] == "persistent_notification" and c[0][1] == "create"
+        c for c in calls if c[0][0] == "persistent_notification" and c[0][1] == "create"
     ]
     assert len(notification_calls) == 1
     notification_data = notification_calls[0][0][2]
@@ -775,20 +1270,37 @@ async def test_notification_disabled():
 
     entity_reg = Mock()
 
-    with patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg), \
-         patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg), \
-         patch("custom_components.openplantbook.uploader.entity_registry.async_entries_for_device", return_value=[plant_entity_entry]), \
-         patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance:
+    with (
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
+            return_value=[plant_entity_entry],
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
+    ):
 
         mock_recorder = Mock()
         mock_get_instance.return_value = mock_recorder
         plant_state = Mock()
         plant_state.attributes = {"species_original": "capsicum annuum"}
-        mock_recorder.async_add_executor_job = AsyncMock(return_value={"plant.my_plant": [plant_state]})
+        mock_recorder.async_add_executor_job = AsyncMock(
+            return_value={"plant.my_plant": [plant_state]}
+        )
 
         now = dt_util.now(dt.UTC)
         last_upload = now - timedelta(days=5)
-        api_mock.async_plant_instance_register.return_value = [{"id": "opb_id", "latest_data": last_upload.isoformat()}]
+        api_mock.async_plant_instance_register.return_value = [
+            {"id": "opb_id", "latest_data": last_upload.isoformat()}
+        ]
 
         with patch("homeassistant.util.dt.now", return_value=now):
             await plant_data_upload(hass, entry)
@@ -800,7 +1312,9 @@ async def test_notification_disabled():
 
 
 @pytest.mark.asyncio
-async def test_plant_data_upload_warns_when_one_sensor_has_only_unavailable_unknown_states(caplog):
+async def test_plant_data_upload_warns_when_one_sensor_has_only_unavailable_unknown_states(
+    caplog,
+):
     """Test warning when one sensor has only unavailable/unknown states but others have valid ones."""
     caplog.set_level(logging.DEBUG)
 
@@ -891,19 +1405,32 @@ async def test_plant_data_upload_warns_when_one_sensor_has_only_unavailable_unkn
                 return {"sensor.temp": [temp_sensor_state]}
             # Moisture sensor returns only unavailable/unknown states
             if "sensor.moisture" in args[3]:
-                return {"sensor.moisture": [moisture_unavailable_state_1, moisture_unknown_state_2]}
+                return {
+                    "sensor.moisture": [
+                        moisture_unavailable_state_1,
+                        moisture_unknown_state_2,
+                    ]
+                }
             return {}
 
         raise AssertionError(f"Unexpected executor job: {func}")
 
     with (
-        patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg),
-        patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg),
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
         patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
             return_value=[plant_entity_entry, temp_sensor_entry, moisture_sensor_entry],
         ),
-        patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance,
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
     ):
         mock_recorder = Mock()
         mock_recorder.async_add_executor_job = AsyncMock(
@@ -922,7 +1449,7 @@ async def test_plant_data_upload_warns_when_one_sensor_has_only_unavailable_unkn
     assert "sensor.moisture" in caplog.text
     assert "stale data" in caplog.text
     assert any(record.levelname == "WARNING" for record in caplog.records)
-    
+
     # Verify the warning mentions it's been 5 days
     assert "5 days ago" in caplog.text or "5 days" in caplog.text
 
@@ -1015,13 +1542,21 @@ async def test_notification_missing_sensor_data_enabled(caplog):
         raise AssertionError(f"Unexpected executor job: {func}")
 
     with (
-        patch("custom_components.openplantbook.uploader.device_registry.async_get", return_value=device_reg),
-        patch("custom_components.openplantbook.uploader.entity_registry.async_get", return_value=entity_reg),
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
         patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
             return_value=[plant_entity_entry, temp_sensor_entry, moisture_sensor_entry],
         ),
-        patch("custom_components.openplantbook.uploader.get_instance") as mock_get_instance,
+        patch(
+            "custom_components.openplantbook.uploader.get_instance"
+        ) as mock_get_instance,
     ):
         mock_recorder = Mock()
         mock_recorder.async_add_executor_job = AsyncMock(
@@ -1041,9 +1576,7 @@ async def test_notification_missing_sensor_data_enabled(caplog):
 
     calls = hass.services.async_call.call_args_list
     notification_calls = [
-        c
-        for c in calls
-        if c[0][0] == "persistent_notification" and c[0][1] == "create"
+        c for c in calls if c[0][0] == "persistent_notification" and c[0][1] == "create"
     ]
     assert len(notification_calls) == 1
     notification_data = notification_calls[0][0][2]
@@ -1054,4 +1587,3 @@ async def test_notification_missing_sensor_data_enabled(caplog):
     assert "sensor.moisture" in notification_data["message"]
     assert "OPB Cloud latest data:" in notification_data["message"]
     assert ".654321" not in notification_data["message"]
-

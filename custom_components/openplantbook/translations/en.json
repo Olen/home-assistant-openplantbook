@@ -15,7 +15,7 @@
                     "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
                     "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration",
                     "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
-                    "use_ha_language": "Use Home-Assistant language when fetching internationalised plants' common names",
+                    "use_ha_language": "Use Home-Assistant language for international plant common names",
                     "notify_upload_warnings": "Plant-sensors monitoring notifications"
                 },
                 "description": "Upload Plant-sensors data to OpenPlantbook. Please consider enabling it to contribute to a creation of a Worldwide Browsable dataset. [More info]({sensor_data_url})",
@@ -43,10 +43,10 @@
                     "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",
                     "upload_data_hass_location_coordinates": "Share a location COORDINATES from Home-Assistant configuration",
                     "upload_data_hass_location_country": "Share a location COUNTRY from Home-Assistant configuration",
-                    "use_ha_language": "Use Home-Assistant language when fetching internationalised plants' common names",
+                    "use_ha_language": "Use Home-Assistant language for international plant common names",
                     "notify_upload_warnings": "Plant-sensors monitoring notifications"
                 },
-                "description": "More information about: Plant-sensors data uploading [OpenPlantbook]({sensor_data_url}), Internationalised Common Names (https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names)",
+                "description": "More information about:\n* [Plant-sensors data uploading]({sensor_data_url}) \n* [International Common Names]({common_names_url})",
                 "title": "Options"
             }
         }

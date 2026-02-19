@@ -1,7 +1,6 @@
 """The OpenPlantBook integration."""
 
 import asyncio
-from datetime import datetime, timedelta
 import logging
 import os
 import re
@@ -9,10 +8,8 @@ import urllib.parse
 from asyncio import timeout as async_timeout
 from datetime import datetime, timedelta
 
-import async_timeout
-from openplantbook_sdk import MissingClientIdOrSecret, OpenPlantBookApi
-from openplantbook_sdk.sdk import RateLimitError
 import voluptuous as vol
+from homeassistant import exceptions
 from homeassistant.components.persistent_notification import (
     create as create_notification,
 )
@@ -28,6 +25,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.util import raise_if_invalid_filename, slugify
 from openplantbook_sdk import MissingClientIdOrSecret, OpenPlantBookApi
+from openplantbook_sdk.sdk import RateLimitError
 
 from .const import (
     ATTR_ALIAS,
@@ -103,11 +101,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass=hass,
             title="New Features available in OpenPlantbook Integration",
             message=f"New features are available: (1) use Home Assistant language to fetch internationalised "
-            f"common plant names ([more info)](https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names),"
-            f"and (2) plant-sensors issues monitoring with notifications. You can enable "
-            f"these in [OpenPlantbook Integration's settings]("
-            f"https://github.com/Olen/home-assistant-openplantbook?tab=readme-ov-file#configuration)."
-
+            f"common plant names ([more info)](https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names), "
+            f"and (2) Plant-sensors problems detection with notifications. You can enable "
+            f"these in [settings]("
+            f"https://github.com/Olen/home-assistant-openplantbook?tab=readme-ov-file#%EF%B8%8F-configuration-options).",
         )
 
     async def get_plant(call: ServiceCall) -> ServiceResponse:
@@ -147,7 +144,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     ].async_plant_detail_get(species)
             except RateLimitError as err:
                 plant_data = None
-                _LOGGER.warning("Rate limit reached while fetching data for %s", species)
+                _LOGGER.warning(
+                    "Rate limit reached while fetching data for %s", species
+                )
                 del hass.data[DOMAIN][ATTR_SPECIES][species]
                 raise exceptions.HomeAssistantError(
                     "OpenPlantbook API rate limit exceeded. Please try again later."
@@ -331,7 +330,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return False
 
         data = await resp.read()
-        await hass.async_add_executor_job(_write_file, download_to, data)
+        try:
+            await hass.async_add_executor_job(_write_file, download_to, data)
+        except PermissionError:
+            _LOGGER.warning("Cannot write image to %s due to permission error", download_to)
+            return False
 
         _LOGGER.debug("Downloading of %s done", url)
         return download_to

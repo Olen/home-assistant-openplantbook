@@ -1,13 +1,2 @@
 # TODO N: Create service to upload plants data for last x days
 # TODO N: Remove milliseconds from JTS timestamps as such precision is not needed
-# TODO V: Notify existing installations "please consider enabling sensor sharing" OR Prompt for sensor sharing on new installations
-# TODO ?: OptionsFlow make separate step for uploader.
-# TODO V: Add support for language parameter
-# TODO V: User notification when no sensors data
-# TODO V: HASS pop up notification with UI option to indicate a particular sensor problem.
-# TODO V: Randomize time of uploading
-# TODO V: Handle 429 errors
-# TODO V: Add one-off message about new features: Language and monitoring
-
-
-

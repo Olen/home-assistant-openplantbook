@@ -2,7 +2,8 @@
   "domain": "openplantbook",
   "name": "OpenPlantbook",
   "codeowners": [
-    "@Olen"
+    "@Olen",
+    "@slaxor505"
   ],
   "config_flow": true,
   "dependencies": [
@@ -19,5 +20,5 @@
     "json-timeseries==0.1.7",
     "openplantbook-sdk==0.6.1"
   ],
-  "version": "1.4"
+  "version": "1.4-beta1"
 }
