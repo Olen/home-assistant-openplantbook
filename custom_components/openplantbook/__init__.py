@@ -37,7 +37,7 @@ from .const import (
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
-    FLOW_UPLOAD_DATA,
+    FLOW_SEND_LANG,
     OPB_ATTR_RESULTS,
     OPB_ATTR_SEARCH_RESULT,
     OPB_ATTR_TIMESTAMP,
@@ -49,17 +49,10 @@ from .const import (
     OPB_SERVICE_GET,
     OPB_SERVICE_SEARCH,
     OPB_SERVICE_UPLOAD,
-    OPB_MEASUREMENTS_TO_UPLOAD,
-    FLOW_UPLOAD_DATA,
-    OPB_INFO_MESSAGE,
-    OPB_CURRENT_INFO_MESSAGE,
-    FLOW_SEND_LANG,
     PLANTBOOK_BASEURL,
 )
 from .plantbook_exception import OpenPlantbookException
 from .uploader import (
-    UPLOAD_TIME_INTERVAL,
-    UPLOAD_WAIT_AFTER_RESTART,
     async_setup_upload_schedule,
     plant_data_upload,
 )
@@ -100,11 +93,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         create_notification(
             hass=hass,
             title="New Features available in OpenPlantbook Integration",
-            message=f"New features are available: (1) use Home Assistant language to fetch internationalised "
-            f"common plant names ([more info)](https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names), "
-            f"and (2) Plant-sensors problems detection with notifications. You can enable "
-            f"these in [settings]("
-            f"https://github.com/Olen/home-assistant-openplantbook?tab=readme-ov-file#%EF%B8%8F-configuration-options).",
+            message="New features are available: (1) use Home Assistant language to fetch internationalised "
+            "common plant names ([more info)](https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names), "
+            "and (2) Plant-sensors problems detection with notifications. You can enable "
+            "these in [settings]("
+            "https://github.com/Olen/home-assistant-openplantbook?tab=readme-ov-file#%EF%B8%8F-configuration-options).",
         )
 
     async def get_plant(call: ServiceCall) -> ServiceResponse:

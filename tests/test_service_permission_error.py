@@ -4,7 +4,7 @@ import pytest
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.openplantbook import async_setup_entry, InvalidAuth
+from custom_components.openplantbook import InvalidAuth, async_setup_entry
 from custom_components.openplantbook.const import (
     ATTR_IMAGE,
     ATTR_SPECIES,

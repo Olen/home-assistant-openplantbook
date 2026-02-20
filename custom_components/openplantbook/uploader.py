@@ -1,44 +1,40 @@
 import logging
 import random
-from datetime import timedelta, datetime
-import logging
 from datetime import datetime, timedelta
 from typing import Any
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.history import (
-    get_significant_states,
     get_last_state_changes,
+    get_significant_states,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
-    UnitOfTemperature,
-    UnitOfConductivity,
     LIGHT_LUX,
     PERCENTAGE,
+    UnitOfConductivity,
+    UnitOfTemperature,
 )
-from homeassistant.core import HomeAssistant, callback, Event, HassJob
-from homeassistant.helpers import device_registry
-from homeassistant.helpers import entity_registry
+from homeassistant.core import Event, HassJob, HomeAssistant, callback
+from homeassistant.helpers import device_registry, entity_registry
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_time_change,
 )
 from homeassistant.util import dt
-from json_timeseries import JtsDocument, TsRecord, TimeSeries
+from json_timeseries import JtsDocument, TimeSeries, TsRecord
 from openplantbook_sdk import ValidationError
 from openplantbook_sdk.sdk import RateLimitError
 
 from .const import (
     ATTR_API,
     DOMAIN,
-    OPB_MEASUREMENTS_TO_UPLOAD,
-    ATTR_API,
-    FLOW_UPLOAD_DATA,
-    FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
-    FLOW_UPLOAD_HASS_LOCATION_COORD,
     FLOW_NOTIFY_WARNINGS,
+    FLOW_UPLOAD_DATA,
+    FLOW_UPLOAD_HASS_LOCATION_COORD,
+    FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
+    OPB_MEASUREMENTS_TO_UPLOAD,
 )
 from .plantbook_exception import OpenPlantbookException
 
@@ -291,8 +287,8 @@ async def plant_data_upload(
         # Treat missing responses as a failed registration to avoid misleading logs.
         if res is None:
             _LOGGER.error(
-                "Unable to register Plant-instance %s: API returned no response (check credentials/token)"
-                % str(reg_map)
+                "Unable to register Plant-instance %s: API returned no response (check credentials/token)",
+                reg_map,
             )
             continue
 
@@ -312,8 +308,8 @@ async def plant_data_upload(
 
         except (KeyError, IndexError, TypeError, ValueError):
             _LOGGER.error(
-                "Cannot parse OpenPlantbook API PlantInstance endpoint response: %s"
-                % res
+                "Cannot parse OpenPlantbook API PlantInstance endpoint response: %s",
+                res,
             )
             continue
 
@@ -367,12 +363,10 @@ async def plant_data_upload(
                 and sensor_entry.original_device_class in OPB_MEASUREMENTS_TO_UPLOAD
             ):
                 _LOGGER.debug(
-                    "Querying Plant sensor: %s from %s to %s"
-                    % (
-                        sensor_entry.entity_id,
-                        dt_util.as_local(query_period_start_timestamp),
-                        dt_util.as_local(query_period_end_timestamp),
-                    )
+                    "Querying Plant sensor: %s from %s to %s",
+                    sensor_entry.entity_id,
+                    dt_util.as_local(query_period_start_timestamp),
+                    dt_util.as_local(query_period_end_timestamp),
                 )
 
                 # Get states of a single sensor (history) over the period of time
@@ -454,8 +448,8 @@ async def plant_data_upload(
                 if sensor_latest_queried_utc is None:
 
                     _LOGGER.debug(
-                        ">>> No meaningful states found for sensor: %s <<<"
-                        % sensor_entry.entity_id
+                        ">>> No meaningful states found for sensor: %s <<<",
+                        sensor_entry.entity_id,
                     )
 
                     last_change = await get_instance(hass).async_add_executor_job(
