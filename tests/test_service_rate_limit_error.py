@@ -1,12 +1,10 @@
-import pytest
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.exceptions import HomeAssistantError
-
-from pytest_homeassistant_custom_component.common import MockConfigEntry
-
 from openplantbook_sdk.sdk import RateLimitError
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook import async_setup_entry
 from custom_components.openplantbook.const import (
@@ -17,7 +15,6 @@ from custom_components.openplantbook.const import (
     OPB_SERVICE_SEARCH,
     OPB_SERVICE_UPLOAD,
 )
-
 
 pytestmark = pytest.mark.enable_socket
 

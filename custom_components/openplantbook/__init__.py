@@ -333,7 +333,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await hass.async_add_executor_job(_write_file, download_to, data)
         except PermissionError:
-            _LOGGER.warning("Cannot write image to %s due to permission error", download_to)
+            _LOGGER.warning(
+                "Cannot write image to %s due to permission error", download_to
+            )
             return False
 
         _LOGGER.debug("Downloading of %s done", url)
