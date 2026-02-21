@@ -23,6 +23,11 @@ OPB_SERVICE_CLEAN_CACHE = "clean_cache"
 
 OPB_PID = "pid"
 OPB_DISPLAY_PID = "display_pid"
+OPB_MAX_LIGHT_MMOL = "max_light_mmol"
+OPB_MIN_LIGHT_MMOL = "min_light_mmol"
+OPB_MAX_LIGHT_LUX = "max_light_lux"
+OPB_MAX_DLI = "max_dli"
+OPB_MIN_DLI = "min_dli"
 
 FLOW_DOWNLOAD_IMAGES = "download_images"
 FLOW_DOWNLOAD_PATH = "download_path"

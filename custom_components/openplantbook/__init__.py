@@ -45,6 +45,11 @@ from .const import (
     OPB_CURRENT_INFO_MESSAGE,
     OPB_DISPLAY_PID,
     OPB_INFO_MESSAGE,
+    OPB_MAX_DLI,
+    OPB_MAX_LIGHT_LUX,
+    OPB_MAX_LIGHT_MMOL,
+    OPB_MIN_DLI,
+    OPB_MIN_LIGHT_MMOL,
     OPB_PID,
     OPB_SERVICE_CLEAN_CACHE,
     OPB_SERVICE_GET,
@@ -72,9 +77,9 @@ def _enrich_plant_data_with_dli(plant_data: dict) -> None:
     - Ratio > 0.5: mmol is likely a daily integral in mmol/d/m² → divide by 1000
     - Ratio < 0.02 or no lux data: use × 0.0036 as default, log a warning
     """
-    max_mmol = plant_data.get("max_light_mmol")
-    min_mmol = plant_data.get("min_light_mmol")
-    max_lux = plant_data.get("max_light_lux")
+    max_mmol = plant_data.get(OPB_MAX_LIGHT_MMOL)
+    min_mmol = plant_data.get(OPB_MIN_LIGHT_MMOL)
+    max_lux = plant_data.get(OPB_MAX_LIGHT_LUX)
 
     # Determine conversion method via ratio check
     factor = MMOL_TO_DLI_FACTOR  # default: × 0.0036
@@ -88,7 +93,7 @@ def _enrich_plant_data_with_dli(plant_data: dict) -> None:
                 "mmol values as daily integrals (DLI = mmol / 1000). "
                 "max_mmol=%s, max_lux=%s",
                 ratio,
-                plant_data.get("display_pid", "unknown"),
+                plant_data.get(OPB_DISPLAY_PID, "unknown"),
                 MMOL_LUX_RATIO_MAX,
                 max_mmol,
                 max_lux,
@@ -98,16 +103,16 @@ def _enrich_plant_data_with_dli(plant_data: dict) -> None:
                 "Unusual mmol/lux ratio %.4f for %s (below %.2f). "
                 "DLI thresholds may be inaccurate. max_mmol=%s, max_lux=%s",
                 ratio,
-                plant_data.get("display_pid", "unknown"),
+                plant_data.get(OPB_DISPLAY_PID, "unknown"),
                 MMOL_LUX_RATIO_MIN,
                 max_mmol,
                 max_lux,
             )
 
     if max_mmol is not None:
-        plant_data["max_dli"] = round(float(max_mmol) * factor, 1)
+        plant_data[OPB_MAX_DLI] = round(float(max_mmol) * factor, 1)
     if min_mmol is not None:
-        plant_data["min_dli"] = round(float(min_mmol) * factor, 1)
+        plant_data[OPB_MIN_DLI] = round(float(min_mmol) * factor, 1)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
