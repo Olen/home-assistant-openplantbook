@@ -23,6 +23,11 @@ OPB_SERVICE_CLEAN_CACHE = "clean_cache"
 
 OPB_PID = "pid"
 OPB_DISPLAY_PID = "display_pid"
+OPB_MAX_LIGHT_MMOL = "max_light_mmol"
+OPB_MIN_LIGHT_MMOL = "min_light_mmol"
+OPB_MAX_LIGHT_LUX = "max_light_lux"
+OPB_MAX_DLI = "max_dli"
+OPB_MIN_DLI = "min_dli"
 
 FLOW_DOWNLOAD_IMAGES = "download_images"
 FLOW_DOWNLOAD_PATH = "download_path"
@@ -40,3 +45,11 @@ OPB_CURRENT_INFO_MESSAGE = 1
 FLOW_UPLOAD_DATA = "upload_data"
 FLOW_UPLOAD_HASS_LOCATION_COUNTRY = "upload_data_hass_location_country"
 FLOW_UPLOAD_HASS_LOCATION_COORD = "upload_data_hass_location_coordinates"
+
+# DLI conversion from OpenPlantbook mmol values
+# The OPB mmol values encode PPFD × photoperiod (µmol/m²/s × hours).
+# Factor: 3600 / 1_000_000 = 0.0036 converts to mol/d/m² (DLI).
+MMOL_TO_DLI_FACTOR = 0.0036
+# Expected range for the mmol/lux ratio (corresponds to ~1-27h effective photoperiod)
+MMOL_LUX_RATIO_MIN = 0.02
+MMOL_LUX_RATIO_MAX = 0.5
