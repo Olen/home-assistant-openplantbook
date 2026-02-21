@@ -36,7 +36,11 @@ OPB_MEASUREMENTS_TO_UPLOAD = [
     "humidity",
 ]
 OPB_INFO_MESSAGE = "info_message"
-OPB_CURRENT_INFO_MESSAGE = 1
+OPB_CURRENT_INFO_MESSAGE = 2
 FLOW_UPLOAD_DATA = "upload_data"
 FLOW_UPLOAD_HASS_LOCATION_COUNTRY = "upload_data_hass_location_country"
 FLOW_UPLOAD_HASS_LOCATION_COORD = "upload_data_hass_location_coordinates"
+# New option: control whether to send Home Assistant language to OpenPlantbook API
+FLOW_SEND_LANG = "use_ha_language"
+# New option: control whether to show UI notifications for upload warnings
+FLOW_NOTIFY_WARNINGS = "notify_upload_warnings"
