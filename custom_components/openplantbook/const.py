@@ -40,3 +40,11 @@ OPB_CURRENT_INFO_MESSAGE = 1
 FLOW_UPLOAD_DATA = "upload_data"
 FLOW_UPLOAD_HASS_LOCATION_COUNTRY = "upload_data_hass_location_country"
 FLOW_UPLOAD_HASS_LOCATION_COORD = "upload_data_hass_location_coordinates"
+
+# DLI conversion from OpenPlantbook mmol values
+# The OPB mmol values encode PPFD × photoperiod (µmol/m²/s × hours).
+# Factor: 3600 / 1_000_000 = 0.0036 converts to mol/d/m² (DLI).
+MMOL_TO_DLI_FACTOR = 0.0036
+# Expected range for the mmol/lux ratio (corresponds to ~1-27h effective photoperiod)
+MMOL_LUX_RATIO_MIN = 0.02
+MMOL_LUX_RATIO_MAX = 0.5
