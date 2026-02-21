@@ -5,13 +5,11 @@ from __future__ import annotations
 import logging
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook import _enrich_plant_data_with_dli
 from custom_components.openplantbook.const import (
-    ATTR_SPECIES,
     DOMAIN,
     OPB_SERVICE_GET,
 )
