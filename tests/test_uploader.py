@@ -489,160 +489,77 @@ async def test_async_setup_upload_schedule_rate_limit_skips_cycle(caplog):
 
 
 @pytest.mark.asyncio
-async def test_plant_data_upload_warning_old_data(caplog):
+async def test_plant_data_upload_warning_old_data(
+    hass,
+    init_integration,
+    mock_device_registry,
+    mock_entity_registry,
+    mock_recorder_dependency,
+    mock_plant_device,
+    caplog,
+):
     caplog.set_level(logging.DEBUG)
-    # Mock hass
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-    hass.services = Mock()
-    hass.services.async_call = AsyncMock()
 
-    # Mock hass.data
-    api_mock = AsyncMock()
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
+    device, plant_entity_entry = mock_plant_device
+    mock_device_registry.devices.data = {device.id: device}
 
-    # Mock entry
-    entry = Mock()
-    entry.options = {}
-
-    # Mock device registry
-    device = Mock()
-    # identifiers must be a set of tuples for Home Assistant device registry usually,
-    # but the code does: if "plant" in str(d.identifiers)
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    # Mock entity registry
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
-
-    entity_reg = Mock()
-
-    # Mock recorder
-    with (
-        patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry],
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+    with patch(
+        "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
+        return_value=[plant_entity_entry],
     ):
-
-        mock_recorder = Mock()
-        mock_get_instance.return_value = mock_recorder
-
-        # Mock get_last_state_changes for plant entity
         plant_state = Mock()
-        # The code expects plant_device_state[plant_entity_id][0].attributes["species_original"]
         plant_state.attributes = {"species_original": "capsicum annuum"}
 
-        # We need to mock the async_add_executor_job to return a coroutine or use AsyncMock
-        mock_recorder.async_add_executor_job = AsyncMock(
+        mock_recorder_dependency.async_add_executor_job = AsyncMock(
             return_value={"plant.my_plant": [plant_state]}
         )
 
         # Mock SDK response
         now = dt_util.now(dt.UTC)
         last_upload = now - timedelta(days=5)
+        api_mock = hass.data[DOMAIN][ATTR_API]
         api_mock.async_plant_instance_register.return_value = [
             {"id": "opb_id", "latest_data": last_upload.isoformat()}
         ]
 
-        # Ensure we are using UTC for everything
         with patch("homeassistant.util.dt.now", return_value=now):
-            await plant_data_upload(hass, entry)
+            await plant_data_upload(hass, init_integration)
 
-        assert (
-            "The last time plant sensors data was successfully uploaded 5 days ago"
-            in caplog.text
-        )
-        assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert (
+        "The last time plant sensors data was successfully uploaded 5 days ago"
+        in caplog.text
+    )
+    assert any(record.levelname == "WARNING" for record in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_plant_data_upload_warning_never_uploaded_sunday(caplog):
+async def test_plant_data_upload_warning_never_uploaded_sunday(
+    hass,
+    init_integration,
+    mock_device_registry,
+    mock_entity_registry,
+    mock_recorder_dependency,
+    mock_plant_device,
+    caplog,
+):
     caplog.set_level(logging.DEBUG)
-    # Mock hass
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-    hass.services = Mock()
-    hass.services.async_call = AsyncMock()
 
-    # Mock hass.data
-    api_mock = AsyncMock()
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
+    device, plant_entity_entry = mock_plant_device
+    mock_device_registry.devices.data = {device.id: device}
 
-    # Mock entry
-    entry = Mock()
-    entry.options = {}
-
-    # Mock device registry
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    # Mock entity registry
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
-
-    entity_reg = Mock()
-
-    # Mock recorder
-    with (
-        patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry],
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+    with patch(
+        "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
+        return_value=[plant_entity_entry],
     ):
-
-        mock_recorder = Mock()
-        mock_get_instance.return_value = mock_recorder
-
-        # Mock get_last_state_changes for plant entity
         plant_state = Mock()
         plant_state.attributes = {"species_original": "capsicum annuum"}
 
-        mock_recorder.async_add_executor_job = AsyncMock(
+        mock_recorder_dependency.async_add_executor_job = AsyncMock(
             return_value={"plant.my_plant": [plant_state]}
         )
 
         # Mock SDK response with no latest_data
+        api_mock = hass.data[DOMAIN][ATTR_API]
         api_mock.async_plant_instance_register.return_value = [
             {"id": "opb_id", "latest_data": None}
         ]
@@ -650,85 +567,48 @@ async def test_plant_data_upload_warning_never_uploaded_sunday(caplog):
         # Mock now to be a Sunday (2026-01-25 is a Sunday)
         sunday = datetime(2026, 1, 25, tzinfo=dt.UTC)
         with patch("homeassistant.util.dt.now", return_value=sunday):
-            await plant_data_upload(hass, entry)
+            await plant_data_upload(hass, init_integration)
 
-        assert "Plants sensors data has never been uploaded successfully" in caplog.text
-        assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert "Plants sensors data has never been uploaded successfully" in caplog.text
+    assert any(record.levelname == "WARNING" for record in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_plant_data_upload_registration_none_response_logs_error(caplog):
+async def test_plant_data_upload_registration_none_response_logs_error(
+    hass,
+    init_integration,
+    mock_device_registry,
+    mock_entity_registry,
+    mock_recorder_dependency,
+    mock_plant_device,
+    caplog,
+):
     caplog.set_level(logging.DEBUG)
 
-    # Mock hass
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
+    device, plant_entity_entry = mock_plant_device
+    mock_device_registry.devices.data = {device.id: device}
 
-    # Mock hass.data
-    api_mock = AsyncMock()
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
-
-    # Mock entry
-    entry = Mock()
-    entry.options = {}
-
-    # Mock device registry
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    # Mock entity registry
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
-
-    entity_reg = Mock()
-
-    # Mock recorder
-    with (
-        patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry],
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+    with patch(
+        "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
+        return_value=[plant_entity_entry],
     ):
-
-        mock_recorder = Mock()
-        mock_get_instance.return_value = mock_recorder
-
         plant_state = Mock()
         plant_state.attributes = {"species_original": "capsicum annuum"}
-        mock_recorder.async_add_executor_job = AsyncMock(
+        mock_recorder_dependency.async_add_executor_job = AsyncMock(
             return_value={"plant.my_plant": [plant_state]}
         )
 
         # Simulate SDK returning None (e.g. unauthorized) without raising
+        api_mock = hass.data[DOMAIN][ATTR_API]
         api_mock.async_plant_instance_register.return_value = None
 
         # Use a non-Sunday date to avoid the Sunday warning branch
         monday = datetime(2026, 1, 26, tzinfo=dt.UTC)
         with patch("homeassistant.util.dt.now", return_value=monday):
-            await plant_data_upload(hass, entry)
+            await plant_data_upload(hass, init_integration)
 
-        assert "Unable to register Plant-instance" in caplog.text
-        assert "Registration is successful" not in caplog.text
+    assert "Unable to register Plant-instance" in caplog.text
+    assert "Registration is successful" not in caplog.text
 
 
 @pytest.mark.asyncio
@@ -1288,7 +1168,6 @@ async def test_notification_disabled():
             "custom_components.openplantbook.uploader.get_instance"
         ) as mock_get_instance,
     ):
-
         mock_recorder = Mock()
         mock_get_instance.return_value = mock_recorder
         plant_state = Mock()

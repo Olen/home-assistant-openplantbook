@@ -38,7 +38,6 @@ from .const import (
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
     FLOW_SEND_LANG,
-    FLOW_UPLOAD_DATA,
     MMOL_LUX_RATIO_MAX,
     MMOL_LUX_RATIO_MIN,
     MMOL_TO_DLI_FACTOR,
@@ -141,7 +140,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN][ATTR_SPECIES] = {}
 
     # Display one-off notification about new functionality after upgrade
-    if entry.data.get(OPB_INFO_MESSAGE) != OPB_CURRENT_INFO_MESSAGE:
+    if (
+        entry.options.get(OPB_INFO_MESSAGE)
+        and entry.data.get(OPB_INFO_MESSAGE) != OPB_CURRENT_INFO_MESSAGE
+    ):
         hass.config_entries.async_update_entry(
             entry, data={**entry.data, OPB_INFO_MESSAGE: OPB_CURRENT_INFO_MESSAGE}
         )
@@ -155,7 +157,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "common plant names ([more info)](https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names), "
             "and (2) Plant-sensors problems detection with notifications. You can enable "
             "these in [settings]("
-            "https://github.com/Olen/home-assistant-openplantbook?tab=readme-ov-file#%EF%B8%8F-configuration-options).",
+            "https://github.com/Olen/home-assistant-openplantbook#%EF%B8%8F-configuration-options).",
         )
 
     async def get_plant(call: ServiceCall) -> ServiceResponse:
@@ -448,10 +450,6 @@ async def config_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 
     _LOGGER.debug("Options update: %s, %s", entry.entry_id, entry.options)
     await async_setup_upload_schedule(hass, entry)
-
-
-class CannotConnect(exceptions.HomeAssistantError):
-    """Error to indicate we cannot connect."""
 
 
 class InvalidAuth(exceptions.HomeAssistantError):

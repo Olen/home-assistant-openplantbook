@@ -49,6 +49,45 @@ def mock_recorder_dependency(hass: HomeAssistant) -> Generator[MagicMock, None, 
         yield mock_instance
 
 
+@pytest.fixture
+def mock_device_registry() -> Generator[MagicMock, None, None]:
+    """Mock device registry for uploader tests."""
+    mock_registry = MagicMock()
+    with patch(
+        "custom_components.openplantbook.uploader.device_registry.async_get",
+        return_value=mock_registry,
+    ):
+        yield mock_registry
+
+
+@pytest.fixture
+def mock_entity_registry() -> Generator[MagicMock, None, None]:
+    """Mock entity registry for uploader tests."""
+    mock_registry = MagicMock()
+    with patch(
+        "custom_components.openplantbook.uploader.entity_registry.async_get",
+        return_value=mock_registry,
+    ):
+        yield mock_registry
+
+
+@pytest.fixture
+def mock_plant_device() -> tuple[MagicMock, MagicMock]:
+    """Fixture to provide a mock plant device and its entity."""
+    device = MagicMock()
+    device.identifiers = {("plant", "something")}
+    device.name_by_user = None
+    device.id = "device_id"
+    device.name = "My Plant"
+    device.model = "Plant Model"
+
+    plant_entity_entry = MagicMock()
+    plant_entity_entry.domain = "plant"
+    plant_entity_entry.entity_id = "plant.my_plant"
+
+    return device, plant_entity_entry
+
+
 # Standard test configuration
 TEST_CLIENT_ID = "test_client_id"
 TEST_CLIENT_SECRET = "test_client_secret"

@@ -16,8 +16,6 @@ from custom_components.openplantbook.const import (
     OPB_SERVICE_GET,
 )
 
-pytestmark = pytest.mark.enable_socket
-
 
 @pytest.mark.asyncio
 async def test_get_service_handles_permission_error_from_api(hass):

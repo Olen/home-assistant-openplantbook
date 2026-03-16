@@ -16,8 +16,6 @@ from custom_components.openplantbook.const import (
     OPB_SERVICE_UPLOAD,
 )
 
-pytestmark = pytest.mark.enable_socket
-
 
 @pytest.mark.asyncio
 async def test_get_service_handles_rate_limit_error(hass):
