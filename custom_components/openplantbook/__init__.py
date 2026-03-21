@@ -9,9 +9,6 @@ from asyncio import timeout as async_timeout
 from datetime import datetime, timedelta
 
 import voluptuous as vol
-from homeassistant.components.persistent_notification import (
-    create as create_notification,
-)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import (
@@ -35,16 +32,13 @@ from .const import (
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
-    FLOW_UPLOAD_DATA,
     MMOL_LUX_RATIO_MAX,
     MMOL_LUX_RATIO_MIN,
     MMOL_TO_DLI_FACTOR,
     OPB_ATTR_RESULTS,
     OPB_ATTR_SEARCH_RESULT,
     OPB_ATTR_TIMESTAMP,
-    OPB_CURRENT_INFO_MESSAGE,
     OPB_DISPLAY_PID,
-    OPB_INFO_MESSAGE,
     OPB_MAX_DLI,
     OPB_MAX_LIGHT_LUX,
     OPB_MAX_LIGHT_MMOL,
@@ -133,31 +127,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if ATTR_SPECIES not in hass.data[DOMAIN]:
         hass.data[DOMAIN][ATTR_SPECIES] = {}
-
-    # Display one-off notification about new functionality after upgrade
-    if not entry.data.get(OPB_INFO_MESSAGE):
-        hass.config_entries.async_update_entry(
-            entry, data={**entry.data, OPB_INFO_MESSAGE: OPB_CURRENT_INFO_MESSAGE}
-        )
-        if not entry.options.get(FLOW_UPLOAD_DATA):
-            _LOGGER.debug(
-                "Trigger after upgrade notification: %s", OPB_CURRENT_INFO_MESSAGE
-            )
-            create_notification(
-                hass=hass,
-                title="New Feature available in OpenPlantbook Integration",
-                message="Plant-sensors data uploading is available now. Please consider enabling it in ["
-                "OpenPlantbook Integration's settings]("
-                "https://github.com/Olen/home-assistant-openplantbook?tab=readme-ov-file#configuration) to "
-                "contribute to a creation of a Worldwide [Browsable]("
-                "https://open.plantbook.io/ui/sensor-data/) dataset. [More info.]("
-                "https://open.plantbook.io/ui/sensor-data/)",
-            )
-        else:
-            _LOGGER.debug(
-                "Skipping after upgrade notification: %s because UPLOAD option is enabled",
-                OPB_CURRENT_INFO_MESSAGE,
-            )
 
     async def get_plant(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
