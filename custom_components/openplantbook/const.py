@@ -43,6 +43,8 @@ OPB_MEASUREMENTS_TO_UPLOAD = [
 FLOW_UPLOAD_DATA = "upload_data"
 FLOW_UPLOAD_HASS_LOCATION_COUNTRY = "upload_data_hass_location_country"
 FLOW_UPLOAD_HASS_LOCATION_COORD = "upload_data_hass_location_coordinates"
+# New option: control whether to send Home Assistant language to OpenPlantbook API
+FLOW_SEND_LANG = "use_ha_language"
 
 # DLI conversion from OpenPlantbook mmol values
 # The OPB mmol values encode PPFD × photoperiod (µmol/m²/s × hours).

@@ -32,6 +32,7 @@ from .const import (
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
+    FLOW_SEND_LANG,
     MMOL_LUX_RATIO_MAX,
     MMOL_LUX_RATIO_MIN,
     MMOL_TO_DLI_FACTOR,
@@ -147,9 +148,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.debug("I am the first process to get %s", species)
             hass.data[DOMAIN][ATTR_SPECIES][species] = {}
             try:
-                plant_data = await hass.data[DOMAIN][ATTR_API].async_plant_detail_get(
-                    species
-                )
+                # Optionally pass Home Assistant language to OpenPlantbook API
+                send_lang = entry.options.get(FLOW_SEND_LANG, True)
+                if send_lang:
+                    lang_code = hass.config.language or "en"
+                    if isinstance(lang_code, str):
+                        lang_code = lang_code.split("-")[0].lower()
+                    else:
+                        lang_code = "en"
+                    plant_data = await hass.data[DOMAIN][
+                        ATTR_API
+                    ].async_plant_detail_get(species, lang=lang_code)
+                else:
+                    plant_data = await hass.data[DOMAIN][
+                        ATTR_API
+                    ].async_plant_detail_get(species)
             except MissingClientIdOrSecret:
                 plant_data = None
                 _LOGGER.error(
