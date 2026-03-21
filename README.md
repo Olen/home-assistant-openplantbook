@@ -13,6 +13,10 @@ Connects Home Assistant to the [OpenPlantbook API](https://open.plantbook.io/) f
   - [📦 Installation](#-installation)
   - [🔧 Setup](#-setup)
   - [⚙️ Configuration Options](#️-configuration-options)
+    - [📤 Upload Plant Sensor Data](#-upload-plant-sensor-data)
+    - [🌍 Share Location](#-share-location)
+    - [🌐 International Common Names](#-international-common-names)
+    - [🖼️ Automatically Download Images](#️-automatically-download-images)
   - [📡 Actions (Service Calls)](#-actions-service-calls)
   - [🖥️ GUI Example](#️-gui-example)
   - [☕ Support](#-support)
@@ -62,6 +66,7 @@ When enabled, the integration periodically (once a day) uploads sensor data from
 - First upload: last 24 hours of data
 - If sensors are disconnected, it retries daily for up to 7 days of historical data
 - Can also be triggered manually via the `openplantbook.upload` action
+- Daily uploads are scheduled at a randomized time-of-day per installation (stable for a given config entry) to even load distribution
 
 ### 🌍 Share Location
 
@@ -80,6 +85,12 @@ Location is configured in HA under **Settings** → **System** → **General**.
 > Enable DEBUG logging for the integration to see exactly what data is being shared.
 >
 > ![Debug logging](./images/debug-logging.png)
+
+### 🌐 International Common Names
+
+When enabled, the integration sends your Home Assistant language to OpenPlantbook so the API can return common names in that language when available.
+
+[More information about this OpenPlantbook feature](https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names).
 
 ### 🖼️ Automatically Download Images
 
