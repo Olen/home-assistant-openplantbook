@@ -48,12 +48,7 @@ def get_supported_state_value(state) -> tuple:
     def validate_measurement(supported_unit, value_range):
         nonlocal state_error
 
-        if isinstance(supported_unit, (list, tuple, set)):
-            unit_supported = unit_of_measurement in supported_unit
-        else:
-            unit_supported = unit_of_measurement == supported_unit
-
-        if not unit_supported:
+        if unit_of_measurement != supported_unit:
             _LOGGER.debug(
                 "Unit '%s' of '%s' measurement is not supported. Its value '%s' disregarded",
                 unit_of_measurement,
@@ -125,14 +120,7 @@ def get_supported_state_value(state) -> tuple:
 
     # conductivity
     elif current_measurement == "conductivity":
-        validate_measurement(
-            (
-                UnitOfConductivity.MICROSIEMENS_PER_CM,
-                "µS/cm",  # U+00B5 micro sign
-                "μS/cm",  # U+03BC greek small letter mu
-            ),
-            (0, 3000),
-        )
+        validate_measurement(UnitOfConductivity.MICROSIEMENS_PER_CM, (0, 3000))
 
     # unsupported device_class
     else:
