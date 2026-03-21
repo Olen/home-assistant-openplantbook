@@ -140,7 +140,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_show_form(
                     step_id="upload", data_schema=UPLOAD_SCHEMA, errors=errors
                 )
-            # self.options=user_input
             return self.async_create_entry(
                 title="Openplantbook API", data=self.data, options=user_input
             )

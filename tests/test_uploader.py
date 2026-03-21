@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import homeassistant.util.dt as dt_util
@@ -613,43 +612,16 @@ async def test_plant_data_upload_registration_none_response_logs_error(
 
 @pytest.mark.asyncio
 async def test_plant_data_upload_warns_when_sensor_last_update_is_stale_via_fallback(
+    mock_upload_env,
     caplog,
 ):
     caplog.set_level(logging.DEBUG)
-
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-    hass.services = Mock()
-    hass.services.async_call = AsyncMock()
-
-    api_mock = AsyncMock()
-    api_mock.async_plant_data_upload.return_value = True
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
-
-    entry = Mock()
-    entry.options = {}
-
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
+    env = mock_upload_env
 
     sensor_entity_entry = Mock()
     sensor_entity_entry.domain = "sensor"
     sensor_entity_entry.entity_id = "sensor.temp"
     sensor_entity_entry.original_device_class = "temperature"
-
-    entity_reg = Mock()
 
     now = datetime(2026, 2, 2, tzinfo=dt.UTC)
     stale_last_updated = now - timedelta(days=5)
@@ -676,76 +648,40 @@ async def test_plant_data_upload_warns_when_sensor_last_update_is_stale_via_fall
 
         raise AssertionError(f"Unexpected executor job: {func}")
 
+    env.recorder.async_add_executor_job = AsyncMock(
+        side_effect=async_add_executor_job_side_effect
+    )
+    env.api_mock.async_plant_instance_register.return_value = [
+        {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
+    ]
+
     with (
         patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry, sensor_entity_entry],
+            return_value=[env.plant_entity_entry, sensor_entity_entry],
         ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+        patch("homeassistant.util.dt.now", return_value=now),
     ):
-        mock_recorder = Mock()
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=async_add_executor_job_side_effect
-        )
-        mock_get_instance.return_value = mock_recorder
-
-        api_mock.async_plant_instance_register.return_value = [
-            {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
-        ]
-
-        with patch("homeassistant.util.dt.now", return_value=now):
-            await plant_data_upload(hass, entry)
+        await plant_data_upload(env.hass, Mock(options={}))
 
     assert "sensor.temp" in caplog.text
     assert "stale data" in caplog.text
     assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert "(0) days ago" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_plant_data_upload_does_not_warn_when_sensor_is_fresh(caplog):
+async def test_plant_data_upload_does_not_warn_when_sensor_is_fresh(
+    mock_upload_env,
+    caplog,
+):
     caplog.set_level(logging.DEBUG)
-
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-
-    api_mock = AsyncMock()
-    api_mock.async_plant_data_upload.return_value = True
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
-
-    entry = Mock()
-    entry.options = {}
-
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
+    env = mock_upload_env
 
     sensor_entity_entry = Mock()
     sensor_entity_entry.domain = "sensor"
     sensor_entity_entry.entity_id = "sensor.temp"
     sensor_entity_entry.original_device_class = "temperature"
-
-    entity_reg = Mock()
 
     now = datetime(2026, 2, 2, tzinfo=dt.UTC)
     fresh_last_updated = now - timedelta(minutes=5)
@@ -771,76 +707,37 @@ async def test_plant_data_upload_does_not_warn_when_sensor_is_fresh(caplog):
 
         raise AssertionError(f"Unexpected executor job: {func}")
 
+    env.recorder.async_add_executor_job = AsyncMock(
+        side_effect=async_add_executor_job_side_effect
+    )
+    env.api_mock.async_plant_instance_register.return_value = [
+        {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
+    ]
+
     with (
         patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry, sensor_entity_entry],
+            return_value=[env.plant_entity_entry, sensor_entity_entry],
         ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+        patch("homeassistant.util.dt.now", return_value=now),
     ):
-        mock_recorder = Mock()
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=async_add_executor_job_side_effect
-        )
-        mock_get_instance.return_value = mock_recorder
-
-        api_mock.async_plant_instance_register.return_value = [
-            {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
-        ]
-
-        with patch("homeassistant.util.dt.now", return_value=now):
-            await plant_data_upload(hass, entry)
+        await plant_data_upload(env.hass, Mock(options={}))
 
     assert not any(record.levelname == "WARNING" for record in caplog.records)
 
 
 @pytest.mark.asyncio
-async def test_plant_data_upload_warns_when_stale_state_is_seen_in_history(caplog):
+async def test_plant_data_upload_warns_when_stale_state_is_seen_in_history(
+    mock_upload_env,
+    caplog,
+):
     caplog.set_level(logging.DEBUG)
-
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-    hass.services = Mock()
-    hass.services.async_call = AsyncMock()
-
-    api_mock = AsyncMock()
-    api_mock.async_plant_data_upload.return_value = True
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
-
-    entry = Mock()
-    entry.options = {}
-
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
+    env = mock_upload_env
 
     sensor_entity_entry = Mock()
     sensor_entity_entry.domain = "sensor"
     sensor_entity_entry.entity_id = "sensor.temp"
     sensor_entity_entry.original_device_class = "temperature"
-
-    entity_reg = Mock()
 
     now = datetime(2026, 2, 2, tzinfo=dt.UTC)
     stale_last_updated = now - timedelta(days=5)
@@ -868,78 +765,38 @@ async def test_plant_data_upload_warns_when_stale_state_is_seen_in_history(caplo
 
         raise AssertionError(f"Unexpected executor job: {func}")
 
+    env.recorder.async_add_executor_job = AsyncMock(
+        side_effect=async_add_executor_job_side_effect
+    )
+    # Make the query window include our stale state (latest_data far enough in the past)
+    env.api_mock.async_plant_instance_register.return_value = [
+        {"id": "opb_id", "latest_data": (now - timedelta(days=6)).isoformat()}
+    ]
+
     with (
         patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry, sensor_entity_entry],
+            return_value=[env.plant_entity_entry, sensor_entity_entry],
         ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+        patch("homeassistant.util.dt.now", return_value=now),
     ):
-        mock_recorder = Mock()
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=async_add_executor_job_side_effect
-        )
-        mock_get_instance.return_value = mock_recorder
-
-        # Make the query window include our stale state (latest_data far enough in the past)
-        api_mock.async_plant_instance_register.return_value = [
-            {"id": "opb_id", "latest_data": (now - timedelta(days=6)).isoformat()}
-        ]
-
-        with patch("homeassistant.util.dt.now", return_value=now):
-            await plant_data_upload(hass, entry)
+        await plant_data_upload(env.hass, Mock(options={}))
 
     assert "sensor.temp" in caplog.text
     assert "stale data" in caplog.text
     assert any(record.levelname == "WARNING" for record in caplog.records)
+    assert "(6) days ago" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_notification_stale_sensor_enabled():
+async def test_notification_stale_sensor_enabled(mock_upload_env):
     """Test combined notification is created for stale sensor when enabled."""
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-    hass.services = Mock()
-    hass.services.async_call = AsyncMock()
-
-    api_mock = AsyncMock()
-    api_mock.async_plant_data_upload.return_value = True
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
-
-    entry = Mock()
-    entry.options = {FLOW_NOTIFY_WARNINGS: True}
-
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
+    env = mock_upload_env
 
     sensor_entity_entry = Mock()
     sensor_entity_entry.domain = "sensor"
     sensor_entity_entry.entity_id = "sensor.temp"
     sensor_entity_entry.original_device_class = "temperature"
-
-    entity_reg = Mock()
 
     # Include microseconds to ensure user-facing timestamps drop fractional seconds
     now = datetime(2026, 2, 2, 12, 34, 56, 987654, tzinfo=dt.UTC)
@@ -964,37 +821,24 @@ async def test_notification_stale_sensor_enabled():
             return {}
         raise AssertionError(f"Unexpected executor job: {func}")
 
+    env.recorder.async_add_executor_job = AsyncMock(
+        side_effect=async_add_executor_job_side_effect
+    )
+    env.api_mock.async_plant_instance_register.return_value = [
+        {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
+    ]
+
     with (
         patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry, sensor_entity_entry],
+            return_value=[env.plant_entity_entry, sensor_entity_entry],
         ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+        patch("homeassistant.util.dt.now", return_value=now),
     ):
-        mock_recorder = Mock()
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=async_add_executor_job_side_effect
-        )
-        mock_get_instance.return_value = mock_recorder
-        api_mock.async_plant_instance_register.return_value = [
-            {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
-        ]
+        await plant_data_upload(env.hass, Mock(options={FLOW_NOTIFY_WARNINGS: True}))
 
-        with patch("homeassistant.util.dt.now", return_value=now):
-            await plant_data_upload(hass, entry)
-
-    hass.services.async_call.assert_called()
-    calls = hass.services.async_call.call_args_list
+    env.hass.services.async_call.assert_called()
+    calls = env.hass.services.async_call.call_args_list
     notification_calls = [
         c for c in calls if c[0][0] == "persistent_notification" and c[0][1] == "create"
     ]
@@ -1010,34 +854,9 @@ async def test_notification_stale_sensor_enabled():
 
 
 @pytest.mark.asyncio
-async def test_notification_combines_multiple_sensors():
+async def test_notification_combines_multiple_sensors(mock_upload_env):
     """Test combined notification includes multiple sensors and is created only once."""
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-    hass.services = Mock()
-    hass.services.async_call = AsyncMock()
-
-    api_mock = AsyncMock()
-    api_mock.async_plant_data_upload.return_value = True
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
-
-    entry = Mock()
-    entry.options = {FLOW_NOTIFY_WARNINGS: True}
-
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
+    env = mock_upload_env
 
     temp_sensor_entry = Mock()
     temp_sensor_entry.domain = "sensor"
@@ -1048,8 +867,6 @@ async def test_notification_combines_multiple_sensors():
     moisture_sensor_entry.domain = "sensor"
     moisture_sensor_entry.entity_id = "sensor.moisture"
     moisture_sensor_entry.original_device_class = "moisture"
-
-    entity_reg = Mock()
 
     now = datetime(2026, 2, 2, tzinfo=dt.UTC)
     stale_last_updated = now - timedelta(days=5)
@@ -1079,36 +896,27 @@ async def test_notification_combines_multiple_sensors():
             return {}
         raise AssertionError(f"Unexpected executor job: {func}")
 
+    env.recorder.async_add_executor_job = AsyncMock(
+        side_effect=async_add_executor_job_side_effect
+    )
+    env.api_mock.async_plant_instance_register.return_value = [
+        {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
+    ]
+
     with (
         patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry, temp_sensor_entry, moisture_sensor_entry],
+            return_value=[
+                env.plant_entity_entry,
+                temp_sensor_entry,
+                moisture_sensor_entry,
+            ],
         ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+        patch("homeassistant.util.dt.now", return_value=now),
     ):
-        mock_recorder = Mock()
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=async_add_executor_job_side_effect
-        )
-        mock_get_instance.return_value = mock_recorder
-        api_mock.async_plant_instance_register.return_value = [
-            {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
-        ]
+        await plant_data_upload(env.hass, Mock(options={FLOW_NOTIFY_WARNINGS: True}))
 
-        with patch("homeassistant.util.dt.now", return_value=now):
-            await plant_data_upload(hass, entry)
-
-    calls = hass.services.async_call.call_args_list
+    calls = env.hass.services.async_call.call_args_list
     notification_calls = [
         c for c in calls if c[0][0] == "persistent_notification" and c[0][1] == "create"
     ]
@@ -1122,108 +930,45 @@ async def test_notification_combines_multiple_sensors():
 
 
 @pytest.mark.asyncio
-async def test_notification_disabled():
+async def test_notification_disabled(mock_upload_env):
     """Test notification is NOT created when disabled."""
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-    hass.services = Mock()
-    hass.services.async_call = AsyncMock()
+    env = mock_upload_env
 
-    api_mock = AsyncMock()
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
+    plant_state = Mock()
+    plant_state.attributes = {"species_original": "capsicum annuum"}
+    env.recorder.async_add_executor_job = AsyncMock(
+        return_value={"plant.my_plant": [plant_state]}
+    )
 
-    entry = SimpleNamespace(options={FLOW_NOTIFY_WARNINGS: False})
-
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
-
-    entity_reg = Mock()
+    now = dt_util.now(dt.UTC)
+    last_upload = now - timedelta(days=5)
+    env.api_mock.async_plant_instance_register.return_value = [
+        {"id": "opb_id", "latest_data": last_upload.isoformat()}
+    ]
 
     with (
         patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry],
+            return_value=[env.plant_entity_entry],
         ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+        patch("homeassistant.util.dt.now", return_value=now),
     ):
-        mock_recorder = Mock()
-        mock_get_instance.return_value = mock_recorder
-        plant_state = Mock()
-        plant_state.attributes = {"species_original": "capsicum annuum"}
-        mock_recorder.async_add_executor_job = AsyncMock(
-            return_value={"plant.my_plant": [plant_state]}
-        )
+        await plant_data_upload(env.hass, Mock(options={FLOW_NOTIFY_WARNINGS: False}))
 
-        now = dt_util.now(dt.UTC)
-        last_upload = now - timedelta(days=5)
-        api_mock.async_plant_instance_register.return_value = [
-            {"id": "opb_id", "latest_data": last_upload.isoformat()}
-        ]
-
-        with patch("homeassistant.util.dt.now", return_value=now):
-            await plant_data_upload(hass, entry)
-
-    if hass.services.async_call.called:
-        calls = hass.services.async_call.call_args_list
+    if env.hass.services.async_call.called:
+        calls = env.hass.services.async_call.call_args_list
         notification_calls = [c for c in calls if c[0][0] == "persistent_notification"]
         assert len(notification_calls) == 0
 
 
 @pytest.mark.asyncio
 async def test_plant_data_upload_warns_when_one_sensor_has_only_unavailable_unknown_states(
+    mock_upload_env,
     caplog,
 ):
     """Test warning when one sensor has only unavailable/unknown states but others have valid ones."""
     caplog.set_level(logging.DEBUG)
-
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-    hass.services = Mock()
-    hass.services.async_call = AsyncMock()
-
-    api_mock = AsyncMock()
-    api_mock.async_plant_data_upload.return_value = True
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
-
-    entry = Mock()
-    entry.options = {}
-
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
+    env = mock_upload_env
 
     # Temperature sensor with valid recent states
     temp_sensor_entry = Mock()
@@ -1236,8 +981,6 @@ async def test_plant_data_upload_warns_when_one_sensor_has_only_unavailable_unkn
     moisture_sensor_entry.domain = "sensor"
     moisture_sensor_entry.entity_id = "sensor.moisture"
     moisture_sensor_entry.original_device_class = "moisture"
-
-    entity_reg = Mock()
 
     now = datetime(2026, 2, 10, tzinfo=dt.UTC)
     stale_last_updated = now - timedelta(days=5)  # 5 days ago, exceeds 3-day threshold
@@ -1295,35 +1038,25 @@ async def test_plant_data_upload_warns_when_one_sensor_has_only_unavailable_unkn
 
         raise AssertionError(f"Unexpected executor job: {func}")
 
+    env.recorder.async_add_executor_job = AsyncMock(
+        side_effect=async_add_executor_job_side_effect
+    )
+    env.api_mock.async_plant_instance_register.return_value = [
+        {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
+    ]
+
     with (
         patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry, temp_sensor_entry, moisture_sensor_entry],
+            return_value=[
+                env.plant_entity_entry,
+                temp_sensor_entry,
+                moisture_sensor_entry,
+            ],
         ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+        patch("homeassistant.util.dt.now", return_value=now),
     ):
-        mock_recorder = Mock()
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=async_add_executor_job_side_effect
-        )
-        mock_get_instance.return_value = mock_recorder
-
-        api_mock.async_plant_instance_register.return_value = [
-            {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
-        ]
-
-        with patch("homeassistant.util.dt.now", return_value=now):
-            await plant_data_upload(hass, entry)
+        await plant_data_upload(env.hass, Mock(options={}))
 
     # Verify warning is logged about the stale moisture sensor
     assert "sensor.moisture" in caplog.text
@@ -1332,39 +1065,14 @@ async def test_plant_data_upload_warns_when_one_sensor_has_only_unavailable_unkn
 
     # Verify the warning mentions it's been 5 days
     assert "5 days ago" in caplog.text or "5 days" in caplog.text
+    assert "(0) days ago" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_notification_missing_sensor_data_enabled(caplog):
+async def test_notification_missing_sensor_data_enabled(mock_upload_env, caplog):
     """Test warning + notification when a sensor has no valid state and fallback cannot determine last valid update."""
     caplog.set_level(logging.WARNING)
-
-    hass = Mock()
-    hass.data = {}
-    hass.config = Mock()
-    hass.services = Mock()
-    hass.services.async_call = AsyncMock()
-
-    api_mock = AsyncMock()
-    api_mock.async_plant_data_upload.return_value = True
-    hass.data[DOMAIN] = {ATTR_API: api_mock}
-
-    entry = Mock()
-    entry.options = {FLOW_NOTIFY_WARNINGS: True}
-
-    device = Mock()
-    device.identifiers = {("plant", "something")}
-    device.name_by_user = None
-    device.id = "device_id"
-    device.name = "My Plant"
-    device.model = "Plant Model"
-
-    device_reg = Mock()
-    device_reg.devices.data = {"device_id": device}
-
-    plant_entity_entry = Mock()
-    plant_entity_entry.domain = "plant"
-    plant_entity_entry.entity_id = "plant.my_plant"
+    env = mock_upload_env
 
     temp_sensor_entry = Mock()
     temp_sensor_entry.domain = "sensor"
@@ -1375,8 +1083,6 @@ async def test_notification_missing_sensor_data_enabled(caplog):
     moisture_sensor_entry.domain = "sensor"
     moisture_sensor_entry.entity_id = "sensor.moisture"
     moisture_sensor_entry.original_device_class = "moisture"
-
-    entity_reg = Mock()
 
     # Include microseconds to ensure user-facing timestamps drop fractional seconds
     now = datetime(2026, 2, 10, 1, 2, 3, 654321, tzinfo=dt.UTC)
@@ -1421,40 +1127,30 @@ async def test_notification_missing_sensor_data_enabled(caplog):
 
         raise AssertionError(f"Unexpected executor job: {func}")
 
+    env.recorder.async_add_executor_job = AsyncMock(
+        side_effect=async_add_executor_job_side_effect
+    )
+    env.api_mock.async_plant_instance_register.return_value = [
+        {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
+    ]
+
     with (
         patch(
-            "custom_components.openplantbook.uploader.device_registry.async_get",
-            return_value=device_reg,
-        ),
-        patch(
-            "custom_components.openplantbook.uploader.entity_registry.async_get",
-            return_value=entity_reg,
-        ),
-        patch(
             "custom_components.openplantbook.uploader.entity_registry.async_entries_for_device",
-            return_value=[plant_entity_entry, temp_sensor_entry, moisture_sensor_entry],
+            return_value=[
+                env.plant_entity_entry,
+                temp_sensor_entry,
+                moisture_sensor_entry,
+            ],
         ),
-        patch(
-            "custom_components.openplantbook.uploader.get_instance"
-        ) as mock_get_instance,
+        patch("homeassistant.util.dt.now", return_value=now),
     ):
-        mock_recorder = Mock()
-        mock_recorder.async_add_executor_job = AsyncMock(
-            side_effect=async_add_executor_job_side_effect
-        )
-        mock_get_instance.return_value = mock_recorder
-
-        api_mock.async_plant_instance_register.return_value = [
-            {"id": "opb_id", "latest_data": (now - timedelta(hours=1)).isoformat()}
-        ]
-
-        with patch("homeassistant.util.dt.now", return_value=now):
-            await plant_data_upload(hass, entry)
+        await plant_data_upload(env.hass, Mock(options={FLOW_NOTIFY_WARNINGS: True}))
 
     assert "sensor.moisture" in caplog.text
     assert "has no valid data" in caplog.text
 
-    calls = hass.services.async_call.call_args_list
+    calls = env.hass.services.async_call.call_args_list
     notification_calls = [
         c for c in calls if c[0][0] == "persistent_notification" and c[0][1] == "create"
     ]

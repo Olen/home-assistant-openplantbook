@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.openplantbook.const import DOMAIN
+from custom_components.openplantbook.const import ATTR_API, DOMAIN
 
 # This fixture ensures our custom component is loaded
 pytest_plugins = "pytest_homeassistant_custom_component"
@@ -86,6 +87,57 @@ def mock_plant_device() -> tuple[MagicMock, MagicMock]:
     plant_entity_entry.entity_id = "plant.my_plant"
 
     return device, plant_entity_entry
+
+
+@pytest.fixture
+def mock_hass_with_api():
+    """Set up a mock hass instance with the OpenPlantbook API mock."""
+    hass = Mock()
+    hass.data = {}
+    hass.config = Mock()
+    hass.services = Mock()
+    hass.services.async_call = AsyncMock()
+    api_mock = AsyncMock()
+    api_mock.async_plant_data_upload.return_value = True
+    hass.data[DOMAIN] = {ATTR_API: api_mock}
+    return hass, api_mock
+
+
+@pytest.fixture
+def mock_upload_env(mock_hass_with_api, mock_plant_device):
+    """Combined environment for upload tests: device/entity registry, recorder, and plant device."""
+    hass, api_mock = mock_hass_with_api
+    device, plant_entity_entry = mock_plant_device
+
+    device_reg = Mock()
+    device_reg.devices.data = {device.id: device}
+    entity_reg = Mock()
+    recorder = Mock()
+    recorder.async_add_executor_job = AsyncMock(return_value={})
+
+    with (
+        patch(
+            "custom_components.openplantbook.uploader.device_registry.async_get",
+            return_value=device_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.entity_registry.async_get",
+            return_value=entity_reg,
+        ),
+        patch(
+            "custom_components.openplantbook.uploader.get_instance",
+            return_value=recorder,
+        ),
+    ):
+        yield SimpleNamespace(
+            hass=hass,
+            api_mock=api_mock,
+            device=device,
+            plant_entity_entry=plant_entity_entry,
+            device_reg=device_reg,
+            entity_reg=entity_reg,
+            recorder=recorder,
+        )
 
 
 # Standard test configuration

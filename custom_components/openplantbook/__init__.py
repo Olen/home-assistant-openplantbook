@@ -141,7 +141,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Display one-off notification about new functionality after upgrade
     if (
-        entry.options.get(OPB_INFO_MESSAGE)
+        entry.data.get(OPB_INFO_MESSAGE)
         and entry.data.get(OPB_INFO_MESSAGE) != OPB_CURRENT_INFO_MESSAGE
     ):
         hass.config_entries.async_update_entry(

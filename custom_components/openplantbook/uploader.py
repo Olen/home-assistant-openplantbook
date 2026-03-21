@@ -178,7 +178,7 @@ async def plant_data_upload(
 
     entity_reg = entity_registry.async_get(hass)
     jts_doc = JtsDocument()
-    lastest_upload_timestamp = None
+    latest_upload_timestamp = None
     now_utc = dt_util.now(dt.UTC)
 
     stale_sensor_warning_msgs: dict[str, dict[str, Any]] = {}
@@ -334,16 +334,16 @@ async def plant_data_upload(
 
         query_period_end_timestamp = now_utc
 
-        # Get oldest latest_data timestamp into lastest_upload_timestamp
+        # Get oldest latest_data timestamp into latest_upload_timestamp
         if isinstance(latest_data_opb_response, datetime):
-            if (not lastest_upload_timestamp) or (
-                lastest_upload_timestamp < latest_data_opb_response
+            if (not latest_upload_timestamp) or (
+                latest_upload_timestamp < latest_data_opb_response
             ):
-                lastest_upload_timestamp = latest_data_opb_response
+                latest_upload_timestamp = latest_data_opb_response
 
                 _LOGGER.debug(
-                    "Using lastest_upload_timestamp from OPB (in UTC): %s",
-                    lastest_upload_timestamp,
+                    "Using latest_upload_timestamp from OPB (in UTC): %s",
+                    latest_upload_timestamp,
                 )
 
             query_period_start_timestamp = latest_data_opb_response + timedelta(
@@ -494,7 +494,7 @@ async def plant_data_upload(
                             f"{dt_util.as_local(sensor_latest_queried_utc).replace(microsecond=0)} ({sensor_data_age.days} days ago). "
                             f"OpenPlantbook latest_data for this plant instance is "
                             f"{dt_util.as_local(latest_data_opb_response).replace(microsecond=0) if isinstance(latest_data_opb_response, datetime) else 'unknown'} "
-                            f"({opb_data_age.days if isinstance(latest_data_opb_response, timedelta) else 'unknown'}) days ago."
+                            f"({opb_data_age.days if isinstance(opb_data_age, timedelta) else 'unknown'}) days ago."
                         )
                         _LOGGER.warning(warning_msg)
 
@@ -619,8 +619,8 @@ async def plant_data_upload(
     else:
         _LOGGER.info("Found no sensors data to upload")
 
-        if lastest_upload_timestamp:
-            days_since_upload = now_utc - lastest_upload_timestamp
+        if latest_upload_timestamp:
+            days_since_upload = now_utc - latest_upload_timestamp
             if days_since_upload.days > 3:
                 warning_msg = (
                     f"The last time plant sensors data was successfully uploaded {days_since_upload.days} days ago. "
