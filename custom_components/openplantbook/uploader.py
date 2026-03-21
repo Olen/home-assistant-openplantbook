@@ -144,6 +144,46 @@ def get_supported_state_value(state) -> tuple:
     return supported_state, state_error
 
 
+def _register_plant_sensor_warning(
+    warning_dict: dict[str, dict[str, Any]],
+    plant_name: str,
+    opb_latest: datetime | None,
+    opb_age: timedelta | None,
+    sensor_line: str,
+) -> None:
+    """Add a sensor warning line to the grouped warning dict for a plant."""
+    plant_warning = warning_dict.setdefault(
+        plant_name,
+        {
+            "opb_latest": opb_latest,
+            "opb_age": opb_age,
+            "sensors": [],
+        },
+    )
+    plant_warning["sensors"].append(sensor_line)
+
+
+async def _warn_and_notify(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    warning_msg: str,
+    title: str,
+    notification_id: str,
+) -> None:
+    """Log a warning and, when notifications are enabled, create a persistent notification."""
+    _LOGGER.warning(warning_msg)
+    if entry.options.get(FLOW_NOTIFY_WARNINGS, False):
+        await hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": title,
+                "message": warning_msg,
+                "notification_id": notification_id,
+            },
+        )
+
+
 async def plant_data_upload(
     hass: HomeAssistant, entry: ConfigEntry, call=None
 ) -> dict[str, Any] | None:
@@ -506,17 +546,13 @@ async def plant_data_upload(
                             else:
                                 age_short = f"{sensor_data_age.seconds // 60}m"
 
-                            plant_warning = stale_sensor_warning_msgs.setdefault(
+                            _register_plant_sensor_warning(
+                                stale_sensor_warning_msgs,
                                 i.name,
-                                {
-                                    "opb_latest": latest_data_opb_response,
-                                    "opb_age": opb_data_age,
-                                    "sensors": [],
-                                },
-                            )
-                            plant_warning["sensors"].append(
+                                latest_data_opb_response,
+                                opb_data_age,
                                 f"{sensor_entry.entity_id} ({sensor_entry.original_device_class}) "
-                                f"— last update: {dt_util.as_local(sensor_latest_queried_utc).replace(microsecond=0)} ({age_short} ago)"
+                                f"— last update: {dt_util.as_local(sensor_latest_queried_utc).replace(microsecond=0)} ({age_short} ago)",
                             )
                 else:
                     warning_msg = (
@@ -530,16 +566,12 @@ async def plant_data_upload(
                     _LOGGER.warning(warning_msg)
 
                     if entry.options.get(FLOW_NOTIFY_WARNINGS, False):
-                        plant_warning = missing_sensor_warning_msgs.setdefault(
+                        _register_plant_sensor_warning(
+                            missing_sensor_warning_msgs,
                             i.name,
-                            {
-                                "opb_latest": latest_data_opb_response,
-                                "opb_age": opb_data_age,
-                                "sensors": [],
-                            },
-                        )
-                        plant_warning["sensors"].append(
-                            f"{sensor_entry.entity_id} ({sensor_entry.original_device_class})"
+                            latest_data_opb_response,
+                            opb_data_age,
+                            f"{sensor_entry.entity_id} ({sensor_entry.original_device_class})",
                         )
 
         # Remove empty measurements
@@ -628,19 +660,13 @@ async def plant_data_upload(
                     "Please enable OpenPlantbook integration's debug logging for more information. "
                     "You may report this issue via GitHub or support@plantbook.io attaching the debug log if you believe it is a bug."
                 )
-                _LOGGER.warning(warning_msg)
-
-                # Create UI notification if enabled
-                if entry.options.get(FLOW_NOTIFY_WARNINGS, False):
-                    await hass.services.async_call(
-                        "persistent_notification",
-                        "create",
-                        {
-                            "title": "OpenPlantbook: No Recent Upload",
-                            "message": warning_msg,
-                            "notification_id": "openplantbook_no_recent_upload",
-                        },
-                    )
+                await _warn_and_notify(
+                    hass,
+                    entry,
+                    warning_msg,
+                    "OpenPlantbook: No Recent Upload",
+                    "openplantbook_no_recent_upload",
+                )
         else:
             # no latest_data in the OPB API indicates that the data has never been uploaded successfully for the plant
             if now_utc.weekday() == 6:
@@ -650,19 +676,13 @@ async def plant_data_upload(
                     "Please enable OpenPlantbook integration's debug logging for more information. "
                     "You may report this issue via GitHub or support@plantbook.io attaching the debug log if you believe it is a bug."
                 )
-                _LOGGER.warning(warning_msg)
-
-                # Create UI notification if enabled
-                if entry.options.get(FLOW_NOTIFY_WARNINGS, False):
-                    await hass.services.async_call(
-                        "persistent_notification",
-                        "create",
-                        {
-                            "title": "OpenPlantbook: Never Uploaded",
-                            "message": warning_msg,
-                            "notification_id": "openplantbook_never_uploaded",
-                        },
-                    )
+                await _warn_and_notify(
+                    hass,
+                    entry,
+                    warning_msg,
+                    "OpenPlantbook: Never Uploaded",
+                    "openplantbook_never_uploaded",
+                )
 
         return None
 
