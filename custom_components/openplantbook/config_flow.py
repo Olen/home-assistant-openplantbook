@@ -24,6 +24,7 @@ from .const import (
     FLOW_UPLOAD_DATA,
     FLOW_UPLOAD_HASS_LOCATION_COORD,
     FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
+    PLANTBOOK_BASEURL,
 )
 
 TITLE = "title"
@@ -52,7 +53,9 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, str]
     # Check if values are not empty
     try:
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
-            data[CONF_CLIENT_ID], data[CONF_CLIENT_SECRET]
+            data[CONF_CLIENT_ID],
+            data[CONF_CLIENT_SECRET],
+            base_url=PLANTBOOK_BASEURL,
         )
         await hass.data[DOMAIN][ATTR_API]._async_get_token()
         # TODO 4: Error messages for "unable to connect" and "creds are not valid" not working well.

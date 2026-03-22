@@ -52,6 +52,7 @@ from .const import (
     OPB_SERVICE_GET,
     OPB_SERVICE_SEARCH,
     OPB_SERVICE_UPLOAD,
+    PLANTBOOK_BASEURL,
 )
 from .plantbook_exception import OpenPlantbookException
 from .uploader import (
@@ -125,7 +126,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if ATTR_API not in hass.data[DOMAIN]:
         hass.data[DOMAIN][ATTR_API] = OpenPlantBookApi(
-            entry.data.get(CONF_CLIENT_ID), entry.data.get(CONF_CLIENT_SECRET)
+            entry.data.get(CONF_CLIENT_ID),
+            entry.data.get(CONF_CLIENT_SECRET),
+            base_url=PLANTBOOK_BASEURL,
         )
 
     if ATTR_SPECIES not in hass.data[DOMAIN]:
