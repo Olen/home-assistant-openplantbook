@@ -20,6 +20,7 @@ from .const import (
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
+    FLOW_SEND_LANG,
     FLOW_UPLOAD_DATA,
     FLOW_UPLOAD_HASS_LOCATION_COORD,
     FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
@@ -35,6 +36,7 @@ UPLOAD_SCHEMA = vol.Schema(
         FLOW_UPLOAD_DATA: bool,
         FLOW_UPLOAD_HASS_LOCATION_COUNTRY: bool,
         FLOW_UPLOAD_HASS_LOCATION_COORD: bool,
+        vol.Optional(FLOW_SEND_LANG, default=True): bool,
     }
 )
 
@@ -128,7 +130,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=UPLOAD_SCHEMA,
             errors=errors,
             description_placeholders={
-                "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/"
+                "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/",
+                "common_names_url": "https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names",
             },
         )
 
@@ -157,6 +160,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         location_coordinates = self.config_entry.options.get(
             FLOW_UPLOAD_HASS_LOCATION_COORD, False
         )
+        # Language option
+        use_lang = self.config_entry.options.get(FLOW_SEND_LANG, True)
 
         if user_input is not None:
             _LOGGER.debug("User: %s", user_input)
@@ -168,6 +173,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             upload_sensors = user_input.get(FLOW_UPLOAD_DATA)
             location_country = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COUNTRY)
             location_coordinates = user_input.get(FLOW_UPLOAD_HASS_LOCATION_COORD)
+            use_lang = user_input.get(FLOW_SEND_LANG)
 
         _LOGGER.debug(
             "Init: %s, %s", self.config_entry.entry_id, self.config_entry.options
@@ -181,6 +187,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             vol.Optional(
                 FLOW_UPLOAD_HASS_LOCATION_COORD, default=location_coordinates
             ): cv.boolean,
+            vol.Optional(FLOW_SEND_LANG, default=use_lang): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_IMAGES, default=download_images): cv.boolean,
             vol.Optional(FLOW_DOWNLOAD_PATH, default=download_path): cv.string,
         }
@@ -190,7 +197,8 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             data_schema=vol.Schema(data_schema),
             errors=self.errors,
             description_placeholders={
-                "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/"
+                "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/",
+                "common_names_url": "https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names",
             },
         )
 
