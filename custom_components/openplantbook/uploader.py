@@ -21,6 +21,7 @@ from homeassistant.helpers.event import async_call_later, async_track_time_inter
 from homeassistant.util import dt
 from json_timeseries import JtsDocument, TimeSeries, TsRecord
 from openplantbook_sdk import ValidationError
+from openplantbook_sdk.sdk import RateLimitError
 
 from .const import (
     ATTR_API,
@@ -243,17 +244,28 @@ async def plant_data_upload(
                             )
                             caught_exception = None
 
+                except RateLimitError:
+                    raise
                 except Exception as ex_in:
                     _LOGGER.debug(
                         f"The 'display_pid workaround' failed to register Plant-instance: {reg_map} due to Exception: {ex_in}"
                     )
 
+        except RateLimitError:
+            raise
         except Exception as ex:
             caught_exception = ex
 
         if caught_exception:
             _LOGGER.error(
                 f"Cannot upload sensor data for plant '{reg_map}' because unable to register Plant-instance due to exception: {caught_exception}"
+            )
+            continue
+
+        if res is None:
+            _LOGGER.error(
+                "Unable to register Plant-instance %s: API returned no response (check credentials/token)",
+                reg_map,
             )
             continue
 
@@ -419,7 +431,12 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
     async def upload_data(now: datetime) -> None:
         # now = dt_util.as_local(now)
         _LOGGER.info("Plant-sensors data upload initiated")
-        await plant_data_upload(hass, entry)
+        try:
+            await plant_data_upload(hass, entry)
+        except RateLimitError:
+            _LOGGER.warning(
+                "Rate limit reached during scheduled upload; skipping until next scheduled run"
+            )
 
     # Check if upload is enabled via OptionFlow
     upload_sensors = entry.options.get(FLOW_UPLOAD_DATA)

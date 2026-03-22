@@ -9,6 +9,7 @@ from asyncio import timeout as async_timeout
 from datetime import datetime, timedelta
 
 import voluptuous as vol
+from homeassistant import exceptions
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import (
@@ -21,6 +22,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.util import raise_if_invalid_filename, slugify
 from openplantbook_sdk import MissingClientIdOrSecret, OpenPlantBookApi
+from openplantbook_sdk.sdk import RateLimitError
 
 from .const import (
     ATTR_ALIAS,
@@ -163,6 +165,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     plant_data = await hass.data[DOMAIN][
                         ATTR_API
                     ].async_plant_detail_get(species)
+            except RateLimitError as err:
+                plant_data = None
+                _LOGGER.warning(
+                    "Rate limit reached while fetching data for %s", species
+                )
+                del hass.data[DOMAIN][ATTR_SPECIES][species]
+                raise exceptions.HomeAssistantError(
+                    "OpenPlantbook API rate limit exceeded. Please try again later."
+                ) from err
+            except PermissionError as err:
+                plant_data = None
+                _LOGGER.error(
+                    "Authentication failed while fetching data for %s. Please reconfigure the integration",
+                    species,
+                )
+                del hass.data[DOMAIN][ATTR_SPECIES][species]
+                raise InvalidAuth("Authentication failed") from err
             except MissingClientIdOrSecret:
                 plant_data = None
                 _LOGGER.error(
@@ -257,6 +276,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("Searching for %s", alias)
         try:
             plant_data = await hass.data[DOMAIN][ATTR_API].async_plant_search(alias)
+        except RateLimitError as err:
+            _LOGGER.warning("Rate limit reached while searching for %s", alias)
+            raise exceptions.HomeAssistantError(
+                "OpenPlantbook API rate limit exceeded. Please try again later."
+            ) from err
+        except PermissionError as err:
+            _LOGGER.error(
+                "Authentication failed while searching for %s. Please reconfigure the integration",
+                alias,
+            )
+            raise InvalidAuth("Authentication failed") from err
         except MissingClientIdOrSecret:
             _LOGGER.error(
                 "Missing client ID or secret. Please set up the integration again"
@@ -272,7 +302,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return attrs
 
     async def plant_data_upload_service(call: ServiceCall) -> ServiceResponse:
-        return {"result": await plant_data_upload(hass, entry=entry, call=call)}
+        try:
+            return {"result": await plant_data_upload(hass, entry=entry, call=call)}
+        except RateLimitError as err:
+            _LOGGER.warning("Rate limit reached while uploading plant data")
+            raise exceptions.HomeAssistantError(
+                "OpenPlantbook API rate limit exceeded. Please try again later."
+            ) from err
 
     async def clean_cache(call: ServiceCall) -> None:
         hours = call.data.get(ATTR_HOURS)
@@ -318,7 +354,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return False
 
         data = await resp.read()
-        await hass.async_add_executor_job(_write_file, download_to, data)
+        try:
+            await hass.async_add_executor_job(_write_file, download_to, data)
+        except PermissionError:
+            _LOGGER.warning(
+                "Cannot write image to %s due to permission error", download_to
+            )
+            return False
 
         _LOGGER.debug("Downloading of %s done", url)
         return download_to
@@ -378,3 +420,7 @@ async def config_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 
     _LOGGER.debug("Options update: %s, %s", entry.entry_id, entry.options)
     await async_setup_upload_schedule(hass, entry)
+
+
+class InvalidAuth(exceptions.HomeAssistantError):
+    """Error to indicate there is invalid auth."""
