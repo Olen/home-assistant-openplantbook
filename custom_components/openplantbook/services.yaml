@@ -21,6 +21,13 @@ get:
       required: true
       selector:
         text:
+    cache:
+      name: Use cache
+      description: Set to false to bypass the cache and fetch fresh data from the API
+      default: true
+      required: false
+      selector:
+        boolean:
 
 upload:
   name: Upload

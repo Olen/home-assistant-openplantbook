@@ -144,6 +144,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "invalid service call, required attribute %s missing", ATTR_SPECIES
             )
 
+        # Allow callers to bypass the cache (e.g. plant integration "Force refresh")
+        use_cache = call.data.get("cache", True)
+        if not use_cache and species in hass.data[DOMAIN][ATTR_SPECIES]:
+            _LOGGER.debug(
+                "Cache bypass requested for %s, clearing cached data", species
+            )
+            del hass.data[DOMAIN][ATTR_SPECIES][species]
+
         # Here we try to ensure that we only run one API request for each species
         # The first process creates an empty dict, and accesses the API
         # Later requests for the same species either wait for the first one to complete
