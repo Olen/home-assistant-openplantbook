@@ -3,7 +3,7 @@
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/Olen/home-assistant-openplantbook?style=for-the-badge)](https://github.com/Olen/home-assistant-openplantbook/releases)
 
-Connects Home Assistant to the [OpenPlantbook API](https://open.plantbook.io/) for searching plant species, fetching care data, and uploading sensor readings. Used as the data backend for the [Plant Monitor](https://github.com/Olen/homeassistant-plant) integration.
+Connects Home Assistant to the [OpenPlantbook API](https://open.plantbook.io/) for searching plant species, fetching care data, and uploading sensor readings. Used as the data backend for the [Plant Monitor](https://github.com/Olen/homeassistant-plant) integration.  To set up plant monitoring and tracking of your plant related sensors, you need to install that integration.
 
 ---
 
