@@ -130,3 +130,9 @@ dmypy.json
 .pyre/
 .idea
 .junie/
+
+# uv lock file (environment is managed via uv; not tracked for this integration)
+uv.lock
+
+# Local planning / agent artifacts
+/docs/superpowers/
