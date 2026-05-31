@@ -161,22 +161,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # categories, e.g. "care"). An empty request is satisfied by any entry.
         requested_includes = _parse_includes(call.data.get(ATTR_INCLUDE))
 
-        # Allow callers to bypass the cache (e.g. plant integration "Force
-        # refresh"), and also force a refetch when a *completed* cached entry
-        # does not already contain all the requested include categories. We
-        # check OPB_PID so we never disturb the in-flight sentinel ({}) used by
-        # the concurrency guard below.
+        # Decide whether to drop a cached entry and refetch. We refetch when the
+        # caller bypasses the cache (cache: false) or when a cached entry does
+        # not already contain all the requested include categories. In both
+        # cases we require a *completed* entry (OPB_PID present), so we never
+        # delete the in-flight sentinel ({}) used by the concurrency guard
+        # below — a concurrent request waits for that fetch instead of starting
+        # a duplicate one.
         use_cache = call.data.get("cache", True)
         cached = hass.data[DOMAIN][ATTR_SPECIES].get(species)
-        includes_unsatisfied = (
+        includes_unsatisfied = not requested_includes.issubset(
+            set((cached or {}).get(OPB_ATTR_INCLUDES, []))
+        )
+        if (
             cached is not None
             and OPB_PID in cached
-            and not requested_includes.issubset(
-                set(cached.get(OPB_ATTR_INCLUDES, []))
-            )
-        )
-        if species in hass.data[DOMAIN][ATTR_SPECIES] and (
-            not use_cache or includes_unsatisfied
+            and (not use_cache or includes_unsatisfied)
         ):
             _LOGGER.debug(
                 "Refetching %s (bypass=%s, include=%s), clearing cached data",
@@ -294,7 +294,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # If more than one "get_plant" is triggered for the same species, we wait for up to
             # 10 seconds for the first process to complete the API request.
             # We don't want to return immediately, as we want the state object to be set by
-            # the running process before we return from this call
+            # the running process before we return from this call.
+            # Known limitation: if this request asked for extra `include`
+            # categories but the in-flight request did not, we return the
+            # in-flight (possibly base-only) result rather than refetching here.
+            # The next call for those categories will refetch, so this is a
+            # transient, self-correcting miss in the rare concurrent case.
             _LOGGER.debug(
                 "Another process is currently trying to get the data for %s",
                 species,
