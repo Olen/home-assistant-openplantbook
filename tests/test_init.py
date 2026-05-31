@@ -25,6 +25,37 @@ from custom_components.openplantbook.const import (
 from custom_components.openplantbook.plantbook_exception import OpenPlantbookException
 
 
+def _make_detail_side_effect():
+    """Build an async_plant_detail_get side_effect that adds care fields
+    only when params requests include=care (mirrors the real API)."""
+
+    async def _side_effect(species, lang=None, params=None, **kwargs):
+        data = {
+            "pid": "monstera deliciosa",
+            "display_pid": "Monstera deliciosa",
+            "alias": "Swiss cheese plant",
+            "image_url": "https://example.com/monstera.jpg",
+            "min_temp": 15,
+            "max_temp": 30,
+            "min_soil_moist": 20,
+            "max_soil_moist": 60,
+        }
+        include = (params or {}).get("include", "")
+        if "care" in include:
+            data.update(
+                {
+                    "watering": "Likes wet envs; reduce watering in winter.",
+                    "sunlight": "Relatively shade-tolerant, prefers half-shade.",
+                    "soil": "Peat mixed with coarse sand or hydroponics",
+                    "pruning": "Timely remove dead and yellowish leaves.",
+                    "fertilization": "Dilute fertilizer once every 15 days.",
+                }
+            )
+        return data
+
+    return _side_effect
+
+
 class TestIntegrationSetup:
     """Tests for integration setup."""
 
@@ -649,3 +680,134 @@ class TestGetServiceInclude:
 
         call = mock_openplantbook_api.async_plant_detail_get.call_args
         assert call.kwargs["params"] == {}
+
+
+class TestGetServiceIncludeCaching:
+    """Tests for include-aware caching and merge behaviour."""
+
+    async def test_base_then_care_refetches(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """A base fetch followed by include=care must hit the API again."""
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            side_effect=_make_detail_side_effect()
+        )
+
+        await hass.services.async_call(
+            DOMAIN, OPB_SERVICE_GET, {"species": "monstera deliciosa"}, blocking=True
+        )
+        result = await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa", "include": "care"},
+            blocking=True,
+            return_response=True,
+        )
+
+        assert mock_openplantbook_api.async_plant_detail_get.call_count == 2
+        assert result.get("watering") == "Likes wet envs; reduce watering in winter."
+
+    async def test_care_then_care_served_from_cache(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """A second identical include=care request is served from cache."""
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            side_effect=_make_detail_side_effect()
+        )
+
+        await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa", "include": "care"},
+            blocking=True,
+        )
+        await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa", "include": "care"},
+            blocking=True,
+        )
+
+        assert mock_openplantbook_api.async_plant_detail_get.call_count == 1
+
+    async def test_base_after_care_uses_cache_and_keeps_care(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """A base get after a fresh care fetch is a cache hit and still has care."""
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            side_effect=_make_detail_side_effect()
+        )
+
+        await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa", "include": "care"},
+            blocking=True,
+        )
+        result = await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa"},
+            blocking=True,
+            return_response=True,
+        )
+
+        assert mock_openplantbook_api.async_plant_detail_get.call_count == 1
+        assert result.get("soil") == "Peat mixed with coarse sand or hydroponics"
+
+    async def test_care_fields_published_as_entity_attributes(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """care fields are merged into the HA entity attributes."""
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            side_effect=_make_detail_side_effect()
+        )
+
+        await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa", "include": "care"},
+            blocking=True,
+        )
+
+        state = hass.states.get("openplantbook.monstera_deliciosa")
+        assert state is not None
+        assert state.attributes.get("watering") is not None
+
+    async def test_cache_bypass_with_include(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """cache=false forces a refetch even for an already-satisfied include."""
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            side_effect=_make_detail_side_effect()
+        )
+
+        await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa", "include": "care"},
+            blocking=True,
+        )
+        await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa", "include": "care", "cache": False},
+            blocking=True,
+        )
+
+        assert mock_openplantbook_api.async_plant_detail_get.call_count == 2
