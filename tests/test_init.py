@@ -611,3 +611,41 @@ class TestImageDownload:
         assert result is not None
         # Image URL should remain the original HTTP URL
         assert result.get(ATTR_IMAGE, "").startswith("https://")
+
+
+class TestGetServiceInclude:
+    """Tests for the include parameter on the get service."""
+
+    async def test_include_param_passed_to_api(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """include=care must reach the SDK as a params query argument."""
+        await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa", "include": "care"},
+            blocking=True,
+        )
+
+        call = mock_openplantbook_api.async_plant_detail_get.call_args
+        assert call.kwargs["params"] == {"include": "care"}
+
+    async def test_no_include_passes_empty_params(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """A plain get passes an empty params dict (no extra query args)."""
+        await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa"},
+            blocking=True,
+        )
+
+        call = mock_openplantbook_api.async_plant_detail_get.call_args
+        assert call.kwargs["params"] == {}

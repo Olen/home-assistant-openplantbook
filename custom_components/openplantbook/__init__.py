@@ -157,11 +157,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "invalid service call, required attribute %s missing", ATTR_SPECIES
             )
 
-        # Allow callers to bypass the cache (e.g. plant integration "Force refresh")
+        # Parse the optional `include` parameter (comma-separated extra data
+        # categories, e.g. "care"). An empty request is satisfied by any entry.
+        requested_includes = _parse_includes(call.data.get(ATTR_INCLUDE))
+
+        # Allow callers to bypass the cache (e.g. plant integration "Force
+        # refresh"), and also force a refetch when a *completed* cached entry
+        # does not already contain all the requested include categories. We
+        # check OPB_PID so we never disturb the in-flight sentinel ({}) used by
+        # the concurrency guard below.
         use_cache = call.data.get("cache", True)
-        if not use_cache and species in hass.data[DOMAIN][ATTR_SPECIES]:
+        cached = hass.data[DOMAIN][ATTR_SPECIES].get(species)
+        includes_unsatisfied = (
+            cached is not None
+            and OPB_PID in cached
+            and not requested_includes.issubset(
+                set(cached.get(OPB_ATTR_INCLUDES, []))
+            )
+        )
+        if species in hass.data[DOMAIN][ATTR_SPECIES] and (
+            not use_cache or includes_unsatisfied
+        ):
             _LOGGER.debug(
-                "Cache bypass requested for %s, clearing cached data", species
+                "Refetching %s (bypass=%s, include=%s), clearing cached data",
+                species,
+                not use_cache,
+                sorted(requested_includes),
             )
             del hass.data[DOMAIN][ATTR_SPECIES][species]
 
@@ -169,10 +190,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # The first process creates an empty dict, and accesses the API
         # Later requests for the same species either wait for the first one to complete
         # or they return immediately if we already have the data we need
-        _LOGGER.debug("get_plant %s", species)
+        _LOGGER.debug("get_plant %s (include=%s)", species, sorted(requested_includes))
         if species not in hass.data[DOMAIN][ATTR_SPECIES]:
             _LOGGER.debug("I am the first process to get %s", species)
             hass.data[DOMAIN][ATTR_SPECIES][species] = {}
+            # Pass requested extra categories straight through to the API. The
+            # SDK merges `lang` in and treats an empty dict as no extra params.
+            extra_params = {}
+            if requested_includes:
+                extra_params["include"] = ",".join(sorted(requested_includes))
             try:
                 # Optionally pass Home Assistant language to OpenPlantbook API
                 send_lang = entry.options.get(FLOW_SEND_LANG, True)
@@ -184,11 +210,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         lang_code = "en"
                     plant_data = await hass.data[DOMAIN][
                         ATTR_API
-                    ].async_plant_detail_get(species, lang=lang_code)
+                    ].async_plant_detail_get(
+                        species, lang=lang_code, params=extra_params
+                    )
                 else:
                     plant_data = await hass.data[DOMAIN][
                         ATTR_API
-                    ].async_plant_detail_get(species)
+                    ].async_plant_detail_get(species, params=extra_params)
             except RateLimitError as err:
                 plant_data = None
                 _LOGGER.warning(
@@ -218,6 +246,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.debug("Got data for %s", species)
                 _enrich_plant_data_with_dli(plant_data)
                 plant_data[OPB_ATTR_TIMESTAMP] = datetime.now().isoformat()
+                plant_data[OPB_ATTR_INCLUDES] = sorted(requested_includes)
                 hass.data[DOMAIN][ATTR_SPECIES][species] = plant_data
                 entity_id = async_generate_entity_id(
                     f"{DOMAIN}.{{}}", plant_data[OPB_PID], current_ids={}
