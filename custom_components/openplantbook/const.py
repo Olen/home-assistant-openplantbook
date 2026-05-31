@@ -16,8 +16,8 @@ OPB_ATTR_SEARCH_RESULT = "search_result"
 OPB_ATTR_RESULT = "result"
 OPB_ATTR_RESULTS = "results"
 OPB_ATTR_TIMESTAMP = "timestamp"
-# Internal marker on a cached plant_data dict recording which extra
-# `include` categories that entry already satisfies (e.g. ["care"]).
+# Internal marker stored on a cached plant_data dict: the list of extra
+# `include` categories that the cached entry already satisfies (e.g. ["care"]).
 OPB_ATTR_INCLUDES = "_fetched_includes"
 
 OPB_SERVICE_SEARCH = "search"

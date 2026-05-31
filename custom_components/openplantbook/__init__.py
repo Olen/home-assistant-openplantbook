@@ -119,7 +119,9 @@ def _parse_includes(include: str | None) -> set[str]:
     """Parse the comma-separated `include` service parameter into a set.
 
     Empty/whitespace-only input yields an empty set, which is a subset of any
-    cached entry's satisfied categories (so a plain `get` is always a cache hit).
+    cached entry's satisfied categories — so a plain `get` never triggers an
+    include-driven refetch of an already-cached entry (a first fetch or normal
+    cache expiry still calls the API).
     """
     if not include:
         return set()
