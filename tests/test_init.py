@@ -41,7 +41,8 @@ def _make_detail_side_effect():
             "max_soil_moist": 60,
         }
         include = (params or {}).get("include", "")
-        if "care" in include:
+        categories = {c.strip() for c in include.split(",") if c.strip()}
+        if "care" in categories:
             data.update(
                 {
                     "watering": "Likes wet envs; reduce watering in winter.",
