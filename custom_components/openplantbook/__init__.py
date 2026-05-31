@@ -212,8 +212,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if entry.options.get(FLOW_DOWNLOAD_IMAGES) and plant_data.get(
                     ATTR_IMAGE
                 ):
+                    # Derive the filename from the URL path only, ignoring any
+                    # cache-busting query string (e.g. ...jpg?v=abc123) so the
+                    # saved filename stays stable across refreshes.
                     filename = slugify(
-                        urllib.parse.unquote(os.path.basename(plant_data[ATTR_IMAGE])),
+                        urllib.parse.unquote(
+                            os.path.basename(
+                                urllib.parse.urlparse(plant_data[ATTR_IMAGE]).path
+                            )
+                        ),
                         separator=" ",
                     ).replace(" jpg", ".jpg")
                     raise_if_invalid_filename(filename)

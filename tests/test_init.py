@@ -473,6 +473,67 @@ class TestImageDownload:
         assert downloaded_file.exists()
         assert downloaded_file.read_bytes() == b"fake image data"
 
+    async def test_get_plant_image_filename_ignores_query_string(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry_with_download: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+        tmp_path,
+    ) -> None:
+        """A cache-busting query string in the image URL must not leak into the filename."""
+        download_dir = tmp_path / "www" / "images" / "plants"
+        download_dir.mkdir(parents=True)
+
+        mock_config_entry_with_download.add_to_hass(hass)
+        hass.config_entries.async_update_entry(
+            mock_config_entry_with_download,
+            options={
+                **mock_config_entry_with_download.options,
+                FLOW_DOWNLOAD_PATH: str(download_dir),
+            },
+        )
+
+        # OpenPlantbook serves cache-busted image URLs, e.g. ...jpg?v=abc123
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            return_value={
+                "pid": "monstera deliciosa",
+                "display_pid": "Monstera deliciosa",
+                "image_url": "https://example.com/monstera.jpg?v=abc123",
+            }
+        )
+
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.read = AsyncMock(return_value=b"fake image data")
+        mock_session = MagicMock()
+        mock_session.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "custom_components.openplantbook.async_get_clientsession",
+            return_value=mock_session,
+        ):
+            await hass.config_entries.async_setup(
+                mock_config_entry_with_download.entry_id
+            )
+            await hass.async_block_till_done()
+            hass.data[DOMAIN][ATTR_SPECIES].clear()
+
+            result = await hass.services.async_call(
+                DOMAIN,
+                OPB_SERVICE_GET,
+                {"species": "monstera deliciosa"},
+                blocking=True,
+                return_response=True,
+            )
+
+        # Filename is derived from the URL path only — query string is stripped.
+        assert (download_dir / "monstera.jpg").exists()
+        # No stray file carrying the query string was created.
+        saved = [p.name for p in download_dir.iterdir()]
+        assert saved == ["monstera.jpg"], saved
+        assert "?" not in result.get(ATTR_IMAGE, "")
+        assert "abc123" not in result.get(ATTR_IMAGE, "")
+
     async def test_get_plant_skips_existing_image(
         self,
         hass: HomeAssistant,
