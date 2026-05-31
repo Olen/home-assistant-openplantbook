@@ -319,6 +319,31 @@ class TestGetPlantServiceErrors:
         assert result == {}
 
 
+class TestParseIncludes:
+    """Tests for the _parse_includes helper."""
+
+    def test_none_returns_empty_set(self) -> None:
+        from custom_components.openplantbook import _parse_includes
+
+        assert _parse_includes(None) == set()
+
+    def test_empty_string_returns_empty_set(self) -> None:
+        from custom_components.openplantbook import _parse_includes
+
+        assert _parse_includes("") == set()
+        assert _parse_includes("   ") == set()
+
+    def test_single_category(self) -> None:
+        from custom_components.openplantbook import _parse_includes
+
+        assert _parse_includes("care") == {"care"}
+
+    def test_comma_separated_with_whitespace(self) -> None:
+        from custom_components.openplantbook import _parse_includes
+
+        assert _parse_includes("care, poison ,care") == {"care", "poison"}
+
+
 class TestUploadService:
     """Tests for the upload service."""
 

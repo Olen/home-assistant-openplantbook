@@ -7,6 +7,7 @@ ATTR_PLANT_INSTANCE = "plant_instance"
 ATTR_SPECIES = "species"
 ATTR_API = "api"
 ATTR_HOURS = "hours"
+ATTR_INCLUDE = "include"
 ATTR_IMAGE = "image_url"
 CACHE_TIME = 24
 
@@ -15,6 +16,9 @@ OPB_ATTR_SEARCH_RESULT = "search_result"
 OPB_ATTR_RESULT = "result"
 OPB_ATTR_RESULTS = "results"
 OPB_ATTR_TIMESTAMP = "timestamp"
+# Internal marker on a cached plant_data dict recording which extra
+# `include` categories that entry already satisfies (e.g. ["care"]).
+OPB_ATTR_INCLUDES = "_fetched_includes"
 
 OPB_SERVICE_SEARCH = "search"
 OPB_SERVICE_GET = "get"

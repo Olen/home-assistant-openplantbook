@@ -29,6 +29,7 @@ from .const import (
     ATTR_API,
     ATTR_HOURS,
     ATTR_IMAGE,
+    ATTR_INCLUDE,
     ATTR_SPECIES,
     CACHE_TIME,
     DOMAIN,
@@ -38,6 +39,7 @@ from .const import (
     MMOL_LUX_RATIO_MAX,
     MMOL_LUX_RATIO_MIN,
     MMOL_TO_DLI_FACTOR,
+    OPB_ATTR_INCLUDES,
     OPB_ATTR_RESULTS,
     OPB_ATTR_SEARCH_RESULT,
     OPB_ATTR_TIMESTAMP,
@@ -111,6 +113,17 @@ def _enrich_plant_data_with_dli(plant_data: dict) -> None:
         plant_data[OPB_MAX_DLI] = round(float(max_mmol) * factor, 1)
     if min_mmol is not None:
         plant_data[OPB_MIN_DLI] = round(float(min_mmol) * factor, 1)
+
+
+def _parse_includes(include: str | None) -> set[str]:
+    """Parse the comma-separated `include` service parameter into a set.
+
+    Empty/whitespace-only input yields an empty set, which is a subset of any
+    cached entry's satisfied categories (so a plain `get` is always a cache hit).
+    """
+    if not include:
+        return set()
+    return {part.strip() for part in include.split(",") if part.strip()}
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
