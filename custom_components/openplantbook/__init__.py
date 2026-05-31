@@ -29,6 +29,7 @@ from .const import (
     ATTR_API,
     ATTR_HOURS,
     ATTR_IMAGE,
+    ATTR_INCLUDE,
     ATTR_SPECIES,
     CACHE_TIME,
     DOMAIN,
@@ -38,6 +39,7 @@ from .const import (
     MMOL_LUX_RATIO_MAX,
     MMOL_LUX_RATIO_MIN,
     MMOL_TO_DLI_FACTOR,
+    OPB_ATTR_INCLUDES,
     OPB_ATTR_RESULTS,
     OPB_ATTR_SEARCH_RESULT,
     OPB_ATTR_TIMESTAMP,
@@ -113,6 +115,19 @@ def _enrich_plant_data_with_dli(plant_data: dict) -> None:
         plant_data[OPB_MIN_DLI] = round(float(min_mmol) * factor, 1)
 
 
+def _parse_includes(include: str | None) -> set[str]:
+    """Parse the comma-separated `include` service parameter into a set.
+
+    Empty/whitespace-only input yields an empty set, which is a subset of any
+    cached entry's satisfied categories — so a plain `get` never triggers an
+    include-driven refetch of an already-cached entry (a first fetch or normal
+    cache expiry still calls the API).
+    """
+    if not include:
+        return set()
+    return {part.strip() for part in include.split(",") if part.strip()}
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the OpenPlantBook component."""
     return True
@@ -144,11 +159,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "invalid service call, required attribute %s missing", ATTR_SPECIES
             )
 
-        # Allow callers to bypass the cache (e.g. plant integration "Force refresh")
+        # Parse the optional `include` parameter (comma-separated extra data
+        # categories, e.g. "care"). An empty request is satisfied by any entry.
+        requested_includes = _parse_includes(call.data.get(ATTR_INCLUDE))
+
+        # Decide whether to drop a cached entry and refetch. We refetch when the
+        # caller bypasses the cache (cache: false) or when a cached entry does
+        # not already contain all the requested include categories. In both
+        # cases we require a *completed* entry (OPB_PID present), so we never
+        # delete the in-flight sentinel ({}) used by the concurrency guard
+        # below — a concurrent request waits for that fetch instead of starting
+        # a duplicate one.
         use_cache = call.data.get("cache", True)
-        if not use_cache and species in hass.data[DOMAIN][ATTR_SPECIES]:
+        cached = hass.data[DOMAIN][ATTR_SPECIES].get(species)
+        includes_unsatisfied = not requested_includes.issubset(
+            set((cached or {}).get(OPB_ATTR_INCLUDES, []))
+        )
+        if (
+            cached is not None
+            and OPB_PID in cached
+            and (not use_cache or includes_unsatisfied)
+        ):
             _LOGGER.debug(
-                "Cache bypass requested for %s, clearing cached data", species
+                "Refetching %s (bypass=%s, include=%s), clearing cached data",
+                species,
+                not use_cache,
+                sorted(requested_includes),
             )
             del hass.data[DOMAIN][ATTR_SPECIES][species]
 
@@ -156,10 +192,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # The first process creates an empty dict, and accesses the API
         # Later requests for the same species either wait for the first one to complete
         # or they return immediately if we already have the data we need
-        _LOGGER.debug("get_plant %s", species)
+        _LOGGER.debug("get_plant %s (include=%s)", species, sorted(requested_includes))
         if species not in hass.data[DOMAIN][ATTR_SPECIES]:
             _LOGGER.debug("I am the first process to get %s", species)
             hass.data[DOMAIN][ATTR_SPECIES][species] = {}
+            # Pass requested extra categories straight through to the API. The
+            # SDK merges `lang` in and treats an empty dict as no extra params.
+            extra_params = {}
+            if requested_includes:
+                extra_params["include"] = ",".join(sorted(requested_includes))
             try:
                 # Optionally pass Home Assistant language to OpenPlantbook API
                 send_lang = entry.options.get(FLOW_SEND_LANG, True)
@@ -171,11 +212,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         lang_code = "en"
                     plant_data = await hass.data[DOMAIN][
                         ATTR_API
-                    ].async_plant_detail_get(species, lang=lang_code)
+                    ].async_plant_detail_get(
+                        species, lang=lang_code, params=extra_params
+                    )
                 else:
                     plant_data = await hass.data[DOMAIN][
                         ATTR_API
-                    ].async_plant_detail_get(species)
+                    ].async_plant_detail_get(species, params=extra_params)
             except RateLimitError as err:
                 plant_data = None
                 _LOGGER.warning(
@@ -205,6 +248,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.debug("Got data for %s", species)
                 _enrich_plant_data_with_dli(plant_data)
                 plant_data[OPB_ATTR_TIMESTAMP] = datetime.now().isoformat()
+                plant_data[OPB_ATTR_INCLUDES] = sorted(requested_includes)
                 hass.data[DOMAIN][ATTR_SPECIES][species] = plant_data
                 entity_id = async_generate_entity_id(
                     f"{DOMAIN}.{{}}", plant_data[OPB_PID], current_ids={}
@@ -252,7 +296,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # If more than one "get_plant" is triggered for the same species, we wait for up to
             # 10 seconds for the first process to complete the API request.
             # We don't want to return immediately, as we want the state object to be set by
-            # the running process before we return from this call
+            # the running process before we return from this call.
+            # Known limitation: if this request asked for extra `include`
+            # categories but the in-flight request did not, we return the
+            # in-flight (possibly base-only) result rather than refetching here.
+            # The next call for those categories will refetch, so this is a
+            # transient, self-correcting miss in the rare concurrent case.
             _LOGGER.debug(
                 "Another process is currently trying to get the data for %s",
                 species,

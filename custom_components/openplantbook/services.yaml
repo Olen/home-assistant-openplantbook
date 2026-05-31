@@ -21,6 +21,13 @@ get:
       required: true
       selector:
         text:
+    include:
+      name: Include extra data
+      description: Comma-separated list of extra data categories to include (currently only 'care'). Leave empty for standard data.
+      example: care
+      required: false
+      selector:
+        text:
     cache:
       name: Use cache
       description: Set to false to bypass the cache and fetch fresh data from the API

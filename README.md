@@ -154,6 +154,19 @@ data:
 > [!NOTE]
 > The species string must match exactly the `pid` returned by `openplantbook.search`.
 
+#### Extra data categories
+
+Request additional categories with the optional `include` parameter (comma-separated). Currently the API supports `care`, which adds `watering`, `sunlight`, `soil`, `pruning`, and `fertilization`:
+
+```yaml
+action: openplantbook.get
+data:
+  species: monstera deliciosa
+  include: care
+```
+
+The extra fields are merged into the same entity and returned in the service response. Cached entries remember which categories they already contain, so requesting `care` for a plant that was previously fetched without it triggers a fresh API call.
+
 Read results from `openplantbook.capsicum_annuum`:
 
 ```jinja2
