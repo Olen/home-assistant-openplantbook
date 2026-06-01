@@ -179,5 +179,10 @@ content: |
   - **Pruning:** {{ state_attr(plant, 'pruning') }}
   - **Fertilization:** {{ state_attr(plant, 'fertilization') }}
   {% endif %}
-  {% endif %}
+
 ```
+
+Will give you something like this: 
+
+<img width="430" height="866" alt="image" src="https://github.com/user-attachments/assets/874d2e89-4987-41ab-a8a9-0b61d028cfa5" />
+
