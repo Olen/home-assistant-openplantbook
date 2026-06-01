@@ -92,7 +92,9 @@ actions:
 
 ### 🌱 Fetch Details on Selection
 
-Gets full plant data when a species is selected from the dropdown:
+Gets full plant data when a species is selected from the dropdown. The
+optional `include: care` also fetches the care guidance (watering, sunlight,
+soil, pruning, fertilization):
 
 ```yaml
 alias: Get Info From Openplantbook
@@ -103,6 +105,7 @@ actions:
   - action: openplantbook.get
     data:
       species: "{{ states('input_select.openplantbook_searchresults') }}"
+      include: care
 ```
 
 ### 🗑️ Clear Cache on Button Press
@@ -138,7 +141,7 @@ entities:
 
 ### Plant Info Card
 
-A Markdown card that shows the selected plant's image, species, and thresholds:
+A Markdown card that shows the selected plant's image, species, thresholds, and (when fetched with `include: care`) care guidance:
 
 ```yaml
 type: markdown
@@ -166,5 +169,15 @@ content: |
   | Humidity             | {{ state_attr(plant, 'min_env_humid') }}  |    | {{ state_attr(plant, 'max_env_humid') }}  | %     |
   | Illumination         | {{ state_attr(plant, 'min_light_lux') }}  |    | {{ state_attr(plant, 'max_light_lux') }}  | lx    |
   | Daily Light Integral | {{ min_dli }}                             |    | {{ max_dli }}                             | mol/d⋅m² |
+
+  {% if state_attr(plant, 'watering') %}
+  ## Care
+
+  - **Watering:** {{ state_attr(plant, 'watering') }}
+  - **Sunlight:** {{ state_attr(plant, 'sunlight') }}
+  - **Soil:** {{ state_attr(plant, 'soil') }}
+  - **Pruning:** {{ state_attr(plant, 'pruning') }}
+  - **Fertilization:** {{ state_attr(plant, 'fertilization') }}
+  {% endif %}
   {% endif %}
 ```

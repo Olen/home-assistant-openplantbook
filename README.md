@@ -167,6 +167,16 @@ data:
 
 The extra fields are merged into the same entity and returned in the service response. Cached entries remember which categories they already contain, so requesting `care` for a plant that was previously fetched without it triggers a fresh API call.
 
+After an `include: care` call, the care fields are available as attributes on the entity:
+
+```jinja2
+* Watering: {{ state_attr('openplantbook.monstera_deliciosa', 'watering') }}
+* Sunlight: {{ state_attr('openplantbook.monstera_deliciosa', 'sunlight') }}
+* Soil: {{ state_attr('openplantbook.monstera_deliciosa', 'soil') }}
+* Pruning: {{ state_attr('openplantbook.monstera_deliciosa', 'pruning') }}
+* Fertilization: {{ state_attr('openplantbook.monstera_deliciosa', 'fertilization') }}
+```
+
 Read results from `openplantbook.capsicum_annuum`:
 
 ```jinja2
