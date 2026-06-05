@@ -34,7 +34,12 @@ class OpenPlantbookSearchResult(Entity):
     def __init__(self, entry: ConfigEntry) -> None:
         """Initialize the search-result entity."""
         self.entity_id = f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}"
-        self._attr_unique_id = f"{entry.entry_id}_{OPB_ATTR_SEARCH_RESULT}"
+        # Prefer the config entry's unique_id (the client_id) so the entity
+        # unique_id stays stable if the entry is removed and re-added for the
+        # same account; fall back to entry_id only when it is unset.
+        self._attr_unique_id = (
+            f"{entry.unique_id or entry.entry_id}_{OPB_ATTR_SEARCH_RESULT}"
+        )
         self._count: int = 0
         self._results: dict[str, str] = {}
 
@@ -73,7 +78,10 @@ class OpenPlantbookSpecies(Entity):
     ) -> None:
         """Initialize a species entity with its first fetched data."""
         self.entity_id = entity_id
-        self._attr_unique_id = f"{entry.entry_id}_{plant_data[OPB_PID]}"
+        # See OpenPlantbookSearchResult: prefer the stable client_id prefix.
+        self._attr_unique_id = (
+            f"{entry.unique_id or entry.entry_id}_{plant_data[OPB_PID]}"
+        )
         self._plant_data: dict[str, Any] = plant_data
 
     @property

@@ -20,11 +20,13 @@ async def test_search_result_entity_has_unique_id(
     hass: HomeAssistant,
     init_integration: MockConfigEntry,
 ) -> None:
-    """The search_result entity is registered with a unique_id."""
+    """The search_result entity is registered with a client_id-based unique_id."""
     ent_reg = er.async_get(hass)
     entry = ent_reg.async_get(f"{DOMAIN}.search_result")
     assert entry is not None
-    assert entry.unique_id is not None
+    # unique_id is prefixed with the config entry's unique_id (the client_id),
+    # which the conftest entry backfills to "test_client_id".
+    assert entry.unique_id == "test_client_id_search_result"
 
 
 async def test_search_result_survives_reload(
@@ -51,14 +53,15 @@ async def test_species_entity_has_unique_id(
     init_integration: MockConfigEntry,
     mock_openplantbook_api,
 ) -> None:
-    """A fetched species entity is registered with a unique_id."""
+    """A fetched species entity is registered with a client_id-based unique_id."""
     await hass.services.async_call(
         DOMAIN, OPB_SERVICE_GET, {"species": "monstera deliciosa"}, blocking=True
     )
     ent_reg = er.async_get(hass)
     entry = ent_reg.async_get("openplantbook.monstera_deliciosa")
     assert entry is not None
-    assert entry.unique_id is not None
+    # Prefixed with the config entry's unique_id (client_id), suffixed with pid.
+    assert entry.unique_id == "test_client_id_monstera deliciosa"
 
 
 async def test_species_registry_entry_purged_on_cache_clean(
@@ -112,3 +115,54 @@ async def test_species_entity_updates_on_refetch(
     state = hass.states.get("openplantbook.monstera_deliciosa")
     assert state is not None
     assert state.state == "Monstera deliciosa UPDATED"
+
+
+async def test_species_entity_deduped_by_pid_across_inputs(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    mock_openplantbook_api,
+) -> None:
+    """Different service inputs resolving to the same pid map to one entity.
+
+    The entity holder is keyed by the canonical pid, so a second fetch with a
+    differently-cased input updates the existing entity instead of attempting
+    to add a duplicate with the same (already-taken) entity_id/unique_id.
+    """
+    # Both inputs resolve to the same pid; the second carries updated data.
+    mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+        side_effect=[
+            {
+                "pid": "monstera deliciosa",
+                "display_pid": "Monstera deliciosa",
+                "max_light_lux": 20000,
+                "min_light_lux": 1000,
+            },
+            {
+                "pid": "monstera deliciosa",
+                "display_pid": "Monstera deliciosa v2",
+                "max_light_lux": 20000,
+                "min_light_lux": 1000,
+            },
+        ]
+    )
+
+    await hass.services.async_call(
+        DOMAIN, OPB_SERVICE_GET, {"species": "Monstera Deliciosa"}, blocking=True
+    )
+    await hass.services.async_call(
+        DOMAIN, OPB_SERVICE_GET, {"species": "monstera deliciosa"}, blocking=True
+    )
+
+    # Exactly one registry entry for the shared entity_id...
+    ent_reg = er.async_get(hass)
+    matching = [
+        e
+        for e in ent_reg.entities.values()
+        if e.entity_id == "openplantbook.monstera_deliciosa"
+    ]
+    assert len(matching) == 1
+    # ...and it reflects the second fetch (proving the update path was taken,
+    # not a rejected duplicate add).
+    state = hass.states.get("openplantbook.monstera_deliciosa")
+    assert state is not None
+    assert state.state == "Monstera deliciosa v2"

@@ -145,14 +145,17 @@ class TestIntegrationSetup:
         # Verify services exist
         assert hass.services.has_service(DOMAIN, OPB_SERVICE_SEARCH)
         assert hass.services.has_service(DOMAIN, OPB_SERVICE_GET)
+        assert hass.services.has_service(DOMAIN, OPB_SERVICE_UPLOAD)
 
         # Unload
         await hass.config_entries.async_unload(init_integration.entry_id)
         await hass.async_block_till_done()
 
-        # Services should be removed
+        # All registered services should be removed (including upload)
         assert not hass.services.has_service(DOMAIN, OPB_SERVICE_SEARCH)
         assert not hass.services.has_service(DOMAIN, OPB_SERVICE_GET)
+        assert not hass.services.has_service(DOMAIN, OPB_SERVICE_CLEAN_CACHE)
+        assert not hass.services.has_service(DOMAIN, OPB_SERVICE_UPLOAD)
 
 
 class TestSearchService:

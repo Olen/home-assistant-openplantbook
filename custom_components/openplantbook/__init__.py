@@ -305,8 +305,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         )
 
                 _LOGGER.debug("data stored for %s: %s", species, plant_data)
+                # Key the entity holder by the canonical pid (not the raw
+                # service input), so different inputs that resolve to the same
+                # pid (casing/alias differences) map to the one entity instead
+                # of colliding on the shared entity_id/unique_id.
+                pid = plant_data[OPB_PID]
                 species_entities = hass.data[DOMAIN][DATA_SPECIES_ENTITIES]
-                existing_entity = species_entities.get(species)
+                existing_entity = species_entities.get(pid)
                 if existing_entity is None:
                     species_entity = OpenPlantbookSpecies(entry, entity_id, plant_data)
                     await hass.data[DOMAIN][DATA_COMPONENT].async_add_entities(
@@ -315,7 +320,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     # Record the entity only after it is successfully added, so a
                     # failed add does not leave a phantom (unattached) entity that
                     # a later update would call async_write_ha_state() on.
-                    species_entities[species] = species_entity
+                    species_entities[pid] = species_entity
                 else:
                     existing_entity.async_update_data(plant_data)
                 return plant_data
@@ -418,7 +423,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     value[OPB_ATTR_TIMESTAMP]
                 ) + timedelta(hours=hours):
                     _LOGGER.debug("Removing %s from cache", species)
-                    entity = hass.data[DOMAIN][DATA_SPECIES_ENTITIES].pop(species, None)
+                    entity = hass.data[DOMAIN][DATA_SPECIES_ENTITIES].pop(
+                        value[OPB_PID], None
+                    )
                     if entity is not None:
                         entity_id = entity.entity_id
                         await entity.async_remove()
@@ -514,6 +521,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_remove(DOMAIN, OPB_SERVICE_SEARCH)
     hass.services.async_remove(DOMAIN, OPB_SERVICE_GET)
     hass.services.async_remove(DOMAIN, OPB_SERVICE_CLEAN_CACHE)
+    hass.services.async_remove(DOMAIN, OPB_SERVICE_UPLOAD)
     # Clear per-entry data but keep the EntityComponent, which is reused across
     # reloads (it owns the openplantbook.* entity platform).
     component = hass.data[DOMAIN].get(DATA_COMPONENT)
