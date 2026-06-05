@@ -110,7 +110,18 @@ class TestIntegrationSetup:
         hass: HomeAssistant,
         init_integration: MockConfigEntry,
     ) -> None:
-        """Test async_unload_entry removes services and data."""
+        """Test async_unload_entry removes per-entry data and services.
+
+        After unload, hass.data[DOMAIN] only retains the EntityComponent (which
+        is intentionally kept alive across reloads so entity platform ownership
+        is stable). Per-entry keys such as ATTR_API and ATTR_SPECIES are gone.
+        """
+        from custom_components.openplantbook.const import (
+            ATTR_API,
+            ATTR_SPECIES,
+            DATA_COMPONENT,
+        )
+
         # Verify setup was successful
         assert DOMAIN in hass.data
 
@@ -119,7 +130,11 @@ class TestIntegrationSetup:
         await hass.async_block_till_done()
 
         assert result is True
-        assert DOMAIN not in hass.data
+        # Per-entry data is gone
+        assert ATTR_API not in hass.data.get(DOMAIN, {})
+        assert ATTR_SPECIES not in hass.data.get(DOMAIN, {})
+        # EntityComponent is deliberately retained for reload reuse
+        assert DATA_COMPONENT in hass.data.get(DOMAIN, {})
 
     async def test_services_removed_on_unload(
         self,

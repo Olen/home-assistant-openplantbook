@@ -20,6 +20,7 @@ from homeassistant.core import (
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import async_generate_entity_id
+from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.util import raise_if_invalid_filename, slugify
 from openplantbook_sdk import MissingClientIdOrSecret, OpenPlantBookApi
 from openplantbook_sdk.sdk import RateLimitError
@@ -32,6 +33,9 @@ from .const import (
     ATTR_INCLUDE,
     ATTR_SPECIES,
     CACHE_TIME,
+    DATA_COMPONENT,
+    DATA_SEARCH_ENTITY,
+    DATA_SPECIES_ENTITIES,
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
@@ -41,7 +45,6 @@ from .const import (
     MMOL_TO_DLI_FACTOR,
     OPB_ATTR_INCLUDES,
     OPB_ATTR_RESULTS,
-    OPB_ATTR_SEARCH_RESULT,
     OPB_ATTR_TIMESTAMP,
     OPB_DISPLAY_PID,
     OPB_MAX_DLI,
@@ -55,6 +58,12 @@ from .const import (
     OPB_SERVICE_SEARCH,
     OPB_SERVICE_UPLOAD,
     PLANTBOOK_BASEURL,
+)
+from .entity import (
+    OpenPlantbookSearchResult,
+)
+from .entity import (
+    OpenPlantbookSpecies as OpenPlantbookSpecies,  # re-exported; wired up in next task
 )
 from .plantbook_exception import OpenPlantbookException
 from .uploader import (
@@ -155,6 +164,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # it does not trigger an options-reload.
     if entry.unique_id is None and (client_id := entry.data.get(CONF_CLIENT_ID)):
         hass.config_entries.async_update_entry(entry, unique_id=client_id)
+
+    if DATA_COMPONENT not in hass.data[DOMAIN]:
+        # One EntityComponent owns all openplantbook.* entities for the life of
+        # this HA instance; it is reused across config-entry reloads.
+        hass.data[DOMAIN][DATA_COMPONENT] = EntityComponent(_LOGGER, DOMAIN, hass)
+    if DATA_SPECIES_ENTITIES not in hass.data[DOMAIN]:
+        hass.data[DOMAIN][DATA_SPECIES_ENTITIES] = {}
 
     async def get_plant(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
@@ -371,7 +387,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         for plant in plant_data[OPB_ATTR_RESULTS]:
             pid = plant[OPB_PID]
             attrs[pid] = plant[OPB_DISPLAY_PID]
-        hass.states.async_set(f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}", state, attrs)
+        hass.data[DOMAIN][DATA_SEARCH_ENTITY].async_update_results(state, attrs)
 
         return attrs
 
@@ -460,7 +476,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         None,
         SupportsResponse.OPTIONAL,
     )
-    hass.states.async_set(f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}", 0)
+    search_entity = OpenPlantbookSearchResult(entry)
+    await hass.data[DOMAIN][DATA_COMPONENT].async_add_entities([search_entity])
+    hass.data[DOMAIN][DATA_SEARCH_ENTITY] = search_entity
 
     return True
 
@@ -477,13 +495,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # limit=30,
     )
     _LOGGER.debug("Removing search result")
-    hass.states.async_remove(f"{DOMAIN}.{OPB_ATTR_SEARCH_RESULT}")
+    search_entity = hass.data[DOMAIN].get(DATA_SEARCH_ENTITY)
+    if search_entity is not None:
+        await search_entity.async_remove()
     _LOGGER.debug("Removing services")
     hass.services.async_remove(DOMAIN, OPB_SERVICE_SEARCH)
     hass.services.async_remove(DOMAIN, OPB_SERVICE_GET)
     hass.services.async_remove(DOMAIN, OPB_SERVICE_CLEAN_CACHE)
-    # And we get rid of the rest
-    hass.data.pop(DOMAIN)
+    # Clear per-entry data but keep the EntityComponent, which is reused across
+    # reloads (it owns the openplantbook.* entity platform).
+    component = hass.data[DOMAIN].get(DATA_COMPONENT)
+    hass.data[DOMAIN] = {DATA_COMPONENT: component} if component else {}
 
     return True
 
