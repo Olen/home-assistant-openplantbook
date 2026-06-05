@@ -18,6 +18,7 @@ from homeassistant.core import (
     ServiceResponse,
     SupportsResponse,
 )
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_component import EntityComponent
@@ -59,12 +60,7 @@ from .const import (
     OPB_SERVICE_UPLOAD,
     PLANTBOOK_BASEURL,
 )
-from .entity import (
-    OpenPlantbookSearchResult,
-)
-from .entity import (
-    OpenPlantbookSpecies as OpenPlantbookSpecies,  # re-exported; wired up in next task
-)
+from .entity import OpenPlantbookSearchResult, OpenPlantbookSpecies
 from .plantbook_exception import OpenPlantbookException
 from .uploader import (
     async_setup_upload_schedule,
@@ -309,9 +305,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         )
 
                 _LOGGER.debug("data stored for %s: %s", species, plant_data)
-                hass.states.async_set(
-                    entity_id, plant_data[OPB_DISPLAY_PID], plant_data
-                )
+                species_entities = hass.data[DOMAIN][DATA_SPECIES_ENTITIES]
+                existing_entity = species_entities.get(species)
+                if existing_entity is None:
+                    species_entity = OpenPlantbookSpecies(entry, entity_id, plant_data)
+                    await hass.data[DOMAIN][DATA_COMPONENT].async_add_entities(
+                        [species_entity]
+                    )
+                    # Record the entity only after it is successfully added, so a
+                    # failed add does not leave a phantom (unattached) entity that
+                    # a later update would call async_write_ha_state() on.
+                    species_entities[species] = species_entity
+                else:
+                    existing_entity.async_update_data(plant_data)
                 return plant_data
             del hass.data[DOMAIN][ATTR_SPECIES][species]
             return {}
@@ -405,16 +411,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if hours is None or not isinstance(hours, int):
             hours = CACHE_TIME
         if ATTR_SPECIES in hass.data[DOMAIN]:
+            ent_reg = er.async_get(hass)
             for species in list(hass.data[DOMAIN][ATTR_SPECIES]):
                 value = hass.data[DOMAIN][ATTR_SPECIES][species]
                 if datetime.now() > datetime.fromisoformat(
                     value[OPB_ATTR_TIMESTAMP]
                 ) + timedelta(hours=hours):
                     _LOGGER.debug("Removing %s from cache", species)
-                    entity_id = async_generate_entity_id(
-                        f"{DOMAIN}.{{}}", value[OPB_PID], current_ids={}
-                    )
-                    hass.states.async_remove(entity_id)
+                    entity = hass.data[DOMAIN][DATA_SPECIES_ENTITIES].pop(species, None)
+                    if entity is not None:
+                        entity_id = entity.entity_id
+                        await entity.async_remove()
+                        # Purge the registry entry too, so dynamically-removed
+                        # species do not accumulate as stale "unavailable"
+                        # entities.
+                        if ent_reg.async_get(entity_id) is not None:
+                            ent_reg.async_remove(entity_id)
                     hass.data[DOMAIN][ATTR_SPECIES].pop(species)
 
     def _write_file(path: str, data: bytes) -> None:
