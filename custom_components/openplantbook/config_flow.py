@@ -101,6 +101,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
 
             if not errors:
+                # Single-account integration: key the entry on the client_id so
+                # a duplicate setup aborts instead of creating a second entry.
+                await self.async_set_unique_id(user_input[CONF_CLIENT_ID])
+                self._abort_if_unique_id_configured()
                 # Input is valid, set data.
                 self.data = user_input
                 # Return the form of the next step.

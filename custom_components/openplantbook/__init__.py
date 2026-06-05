@@ -149,6 +149,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if ATTR_SPECIES not in hass.data[DOMAIN]:
         hass.data[DOMAIN][ATTR_SPECIES] = {}
 
+    # Backfill a unique_id for entries created before this was set in the
+    # config flow, so existing installs also gain one (silences the repair
+    # warning for the entry). Done before the update listener is registered so
+    # it does not trigger an options-reload.
+    if entry.unique_id is None and (client_id := entry.data.get(CONF_CLIENT_ID)):
+        hass.config_entries.async_update_entry(entry, unique_id=client_id)
+
     async def get_plant(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
             _LOGGER.error("no data found for domain %s", DOMAIN)

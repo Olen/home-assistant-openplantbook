@@ -95,6 +95,16 @@ class TestIntegrationSetup:
         assert hass.services.has_service(DOMAIN, OPB_SERVICE_CLEAN_CACHE)
         assert hass.services.has_service(DOMAIN, OPB_SERVICE_UPLOAD)
 
+    async def test_existing_entry_unique_id_backfilled(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """An entry set up without a unique_id is backfilled to the client_id."""
+        # The conftest mock_config_entry is created without a unique_id, so
+        # async_setup_entry's backfill is what sets it to the client_id.
+        assert init_integration.unique_id == "test_client_id"
+
     async def test_async_unload_entry(
         self,
         hass: HomeAssistant,
