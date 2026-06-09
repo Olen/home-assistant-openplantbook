@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock
 
 from homeassistant.core import HomeAssistant
@@ -11,7 +12,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.openplantbook.const import (
     ATTR_HOURS,
     ATTR_SPECIES,
+    CACHE_TIME,
     DOMAIN,
+    OPB_ATTR_TIMESTAMP,
     OPB_SERVICE_CLEAN_CACHE,
     OPB_SERVICE_GET,
 )
@@ -191,3 +194,65 @@ async def test_clean_cache_skips_in_flight_sentinel(
     # The completed entry was cleaned; the in-flight sentinel is left intact.
     assert hass.states.get("openplantbook.monstera_deliciosa") is None
     assert hass.data[DOMAIN][ATTR_SPECIES].get("in flight species") == {}
+
+
+async def test_entity_survives_until_last_pid_cache_entry_expires(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    mock_openplantbook_api,
+) -> None:
+    """The shared per-pid entity is removed only when its last cache entry expires.
+
+    Two differently-cased inputs resolve to the same pid → one shared entity but
+    two cache keys. Expiring one key must not strand the still-cached other key
+    without its state; the entity is torn down only on the last expiry.
+    """
+    # side_effect (not return_value) so each call yields a DISTINCT dict — else
+    # both cache keys would alias one object and backdating one backdates both.
+    mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+        side_effect=[
+            {
+                "pid": "monstera deliciosa",
+                "display_pid": "Monstera deliciosa",
+                "max_light_lux": 20000,
+                "min_light_lux": 1000,
+            },
+            {
+                "pid": "monstera deliciosa",
+                "display_pid": "Monstera deliciosa",
+                "max_light_lux": 20000,
+                "min_light_lux": 1000,
+            },
+        ]
+    )
+    await hass.services.async_call(
+        DOMAIN, OPB_SERVICE_GET, {"species": "Monstera Deliciosa"}, blocking=True
+    )
+    await hass.services.async_call(
+        DOMAIN, OPB_SERVICE_GET, {"species": "monstera deliciosa"}, blocking=True
+    )
+    cache = hass.data[DOMAIN][ATTR_SPECIES]
+    assert set(cache) == {"Monstera Deliciosa", "monstera deliciosa"}
+    assert hass.states.get("openplantbook.monstera_deliciosa") is not None
+
+    ent_reg = er.async_get(hass)
+    old = (datetime.now() - timedelta(hours=CACHE_TIME + 1)).isoformat()
+
+    # Expire only the first key (default CACHE_TIME window applies).
+    cache["Monstera Deliciosa"][OPB_ATTR_TIMESTAMP] = old
+    await hass.services.async_call(DOMAIN, OPB_SERVICE_CLEAN_CACHE, {}, blocking=True)
+    await hass.async_block_till_done()
+
+    # The other cache entry is still valid → the entity must survive.
+    assert "Monstera Deliciosa" not in hass.data[DOMAIN][ATTR_SPECIES]
+    assert "monstera deliciosa" in hass.data[DOMAIN][ATTR_SPECIES]
+    assert hass.states.get("openplantbook.monstera_deliciosa") is not None
+    assert ent_reg.async_get("openplantbook.monstera_deliciosa") is not None
+
+    # Expire the last remaining key → entity + registry entry now removed.
+    hass.data[DOMAIN][ATTR_SPECIES]["monstera deliciosa"][OPB_ATTR_TIMESTAMP] = old
+    await hass.services.async_call(DOMAIN, OPB_SERVICE_CLEAN_CACHE, {}, blocking=True)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("openplantbook.monstera_deliciosa") is None
+    assert ent_reg.async_get("openplantbook.monstera_deliciosa") is None

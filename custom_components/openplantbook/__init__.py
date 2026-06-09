@@ -428,9 +428,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     value[OPB_ATTR_TIMESTAMP]
                 ) + timedelta(hours=hours):
                     _LOGGER.debug("Removing %s from cache", species)
-                    entity = hass.data[DOMAIN][DATA_SPECIES_ENTITIES].pop(
-                        value[OPB_PID], None
-                    )
+                    pid = value[OPB_PID]
+                    hass.data[DOMAIN][ATTR_SPECIES].pop(species)
+                    # The same pid can be cached under several input keys
+                    # (casing/alias differences map to one canonical pid, hence
+                    # one shared entity). Only tear the entity down once the last
+                    # cache entry referencing this pid is gone, so an expiring
+                    # key doesn't strand a still-cached one without its state.
+                    if any(
+                        v.get(OPB_PID) == pid
+                        for v in hass.data[DOMAIN][ATTR_SPECIES].values()
+                    ):
+                        continue
+                    entity = hass.data[DOMAIN][DATA_SPECIES_ENTITIES].pop(pid, None)
                     if entity is not None:
                         entity_id = entity.entity_id
                         await entity.async_remove()
@@ -439,7 +449,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         # entities.
                         if ent_reg.async_get(entity_id) is not None:
                             ent_reg.async_remove(entity_id)
-                    hass.data[DOMAIN][ATTR_SPECIES].pop(species)
 
     def _write_file(path: str, data: bytes) -> None:
         """Write binary data to a file (runs in executor)."""
