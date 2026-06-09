@@ -419,6 +419,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             ent_reg = er.async_get(hass)
             for species in list(hass.data[DOMAIN][ATTR_SPECIES]):
                 value = hass.data[DOMAIN][ATTR_SPECIES][species]
+                # Skip in-flight entries: the get_plant concurrency guard stores
+                # an empty sentinel dict ({}) before the API call completes, so it
+                # has no timestamp/pid yet. It will be cleaned on a later pass.
+                if OPB_ATTR_TIMESTAMP not in value:
+                    continue
                 if datetime.now() > datetime.fromisoformat(
                     value[OPB_ATTR_TIMESTAMP]
                 ) + timedelta(hours=hours):
@@ -479,6 +484,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Setup optionFlow updates listener
     entry.async_on_unload(entry.add_update_listener(config_update_listener))
 
+    # Create the search-result entity BEFORE registering the services, so a
+    # `search` call that arrives as soon as the service appears always finds the
+    # stored entity (avoids a KeyError during the setup window).
+    search_entity = OpenPlantbookSearchResult(entry)
+    await hass.data[DOMAIN][DATA_COMPONENT].async_add_entities([search_entity])
+    hass.data[DOMAIN][DATA_SEARCH_ENTITY] = search_entity
+
     hass.services.async_register(
         DOMAIN, OPB_SERVICE_SEARCH, search_plantbook, None, SupportsResponse.OPTIONAL
     )
@@ -495,9 +507,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         None,
         SupportsResponse.OPTIONAL,
     )
-    search_entity = OpenPlantbookSearchResult(entry)
-    await hass.data[DOMAIN][DATA_COMPONENT].async_add_entities([search_entity])
-    hass.data[DOMAIN][DATA_SEARCH_ENTITY] = search_entity
 
     return True
 

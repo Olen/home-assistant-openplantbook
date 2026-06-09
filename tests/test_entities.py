@@ -10,6 +10,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook.const import (
     ATTR_HOURS,
+    ATTR_SPECIES,
     DOMAIN,
     OPB_SERVICE_CLEAN_CACHE,
     OPB_SERVICE_GET,
@@ -166,3 +167,27 @@ async def test_species_entity_deduped_by_pid_across_inputs(
     state = hass.states.get("openplantbook.monstera_deliciosa")
     assert state is not None
     assert state.state == "Monstera deliciosa v2"
+
+
+async def test_clean_cache_skips_in_flight_sentinel(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    mock_openplantbook_api,
+) -> None:
+    """clean_cache tolerates the in-flight sentinel ({}) left by the concurrency guard."""
+    # A completed entry plus a simulated in-flight sentinel (as get_plant's
+    # concurrency guard would leave mid-fetch).
+    await hass.services.async_call(
+        DOMAIN, OPB_SERVICE_GET, {"species": "monstera deliciosa"}, blocking=True
+    )
+    hass.data[DOMAIN][ATTR_SPECIES]["in flight species"] = {}
+
+    # Must not raise despite the sentinel lacking a timestamp/pid.
+    await hass.services.async_call(
+        DOMAIN, OPB_SERVICE_CLEAN_CACHE, {ATTR_HOURS: 0}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    # The completed entry was cleaned; the in-flight sentinel is left intact.
+    assert hass.states.get("openplantbook.monstera_deliciosa") is None
+    assert hass.data[DOMAIN][ATTR_SPECIES].get("in flight species") == {}
