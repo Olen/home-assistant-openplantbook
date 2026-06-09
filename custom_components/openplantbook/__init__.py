@@ -500,6 +500,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.data[DOMAIN][DATA_COMPONENT].async_add_entities([search_entity])
     hass.data[DOMAIN][DATA_SEARCH_ENTITY] = search_entity
 
+    # The per-species cache is in-memory only, so on a fresh start (e.g. after a
+    # restart) it is empty and clean_cache has nothing to expire. Purge any
+    # per-species entities left in the registry by a previous run so they don't
+    # linger as stale, unavailable entities. The persistent search_result entity
+    # is kept; no per-species entities are live yet at this point in setup.
+    ent_reg = er.async_get(hass)
+    for reg_entry in list(ent_reg.entities.values()):
+        if (
+            reg_entry.platform == DOMAIN
+            and reg_entry.domain == DOMAIN
+            and reg_entry.entity_id != search_entity.entity_id
+        ):
+            ent_reg.async_remove(reg_entry.entity_id)
+
     hass.services.async_register(
         DOMAIN, OPB_SERVICE_SEARCH, search_plantbook, None, SupportsResponse.OPTIONAL
     )

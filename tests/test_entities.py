@@ -256,3 +256,35 @@ async def test_entity_survives_until_last_pid_cache_entry_expires(
 
     assert hass.states.get("openplantbook.monstera_deliciosa") is None
     assert ent_reg.async_get("openplantbook.monstera_deliciosa") is None
+
+
+async def test_stale_species_entities_purged_on_setup(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    mock_openplantbook_api,
+) -> None:
+    """Per-species registry entries left over from a previous run are purged at setup.
+
+    The species cache is in-memory, so after a restart it is empty and
+    clean_cache can't expire anything. Setup must clear leftover per-species
+    registry rows so they don't linger as stale, unavailable entities, while
+    keeping the persistent search_result entity.
+    """
+    ent_reg = er.async_get(hass)
+    # Simulate a per-species entity left in the registry by a previous run.
+    ghost = ent_reg.async_get_or_create(
+        domain=DOMAIN,
+        platform=DOMAIN,
+        unique_id="test_client_id_ghost species",
+        suggested_object_id="ghost_species",
+    )
+    assert ent_reg.async_get(ghost.entity_id) is not None
+    assert ent_reg.async_get("openplantbook.search_result") is not None
+
+    # Reload re-runs async_setup_entry, which purges stale per-species entries.
+    await hass.config_entries.async_reload(init_integration.entry_id)
+    await hass.async_block_till_done()
+
+    assert ent_reg.async_get(ghost.entity_id) is None
+    # The persistent search_result entity is preserved.
+    assert ent_reg.async_get("openplantbook.search_result") is not None
