@@ -101,6 +101,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
 
             if not errors:
+                # Persist the client_id as the entry's unique_id (stable per
+                # account; also used as the entities' unique_id prefix).
+                # Single-instance is enforced by manifest `single_config_entry`,
+                # which blocks a second entry regardless of client_id.
+                await self.async_set_unique_id(user_input[CONF_CLIENT_ID])
                 # Input is valid, set data.
                 self.data = user_input
                 # Return the form of the next step.

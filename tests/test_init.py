@@ -95,12 +95,33 @@ class TestIntegrationSetup:
         assert hass.services.has_service(DOMAIN, OPB_SERVICE_CLEAN_CACHE)
         assert hass.services.has_service(DOMAIN, OPB_SERVICE_UPLOAD)
 
+    async def test_existing_entry_unique_id_backfilled(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """An entry set up without a unique_id is backfilled to the client_id."""
+        # The conftest mock_config_entry is created without a unique_id, so
+        # async_setup_entry's backfill is what sets it to the client_id.
+        assert init_integration.unique_id == "test_client_id"
+
     async def test_async_unload_entry(
         self,
         hass: HomeAssistant,
         init_integration: MockConfigEntry,
     ) -> None:
-        """Test async_unload_entry removes services and data."""
+        """Test async_unload_entry removes per-entry data and services.
+
+        After unload, hass.data[DOMAIN] only retains the EntityComponent (which
+        is intentionally kept alive across reloads so entity platform ownership
+        is stable). Per-entry keys such as ATTR_API and ATTR_SPECIES are gone.
+        """
+        from custom_components.openplantbook.const import (
+            ATTR_API,
+            ATTR_SPECIES,
+            DATA_COMPONENT,
+        )
+
         # Verify setup was successful
         assert DOMAIN in hass.data
 
@@ -109,7 +130,11 @@ class TestIntegrationSetup:
         await hass.async_block_till_done()
 
         assert result is True
-        assert DOMAIN not in hass.data
+        # Per-entry data is gone
+        assert ATTR_API not in hass.data.get(DOMAIN, {})
+        assert ATTR_SPECIES not in hass.data.get(DOMAIN, {})
+        # EntityComponent is deliberately retained for reload reuse
+        assert DATA_COMPONENT in hass.data.get(DOMAIN, {})
 
     async def test_services_removed_on_unload(
         self,
@@ -120,14 +145,17 @@ class TestIntegrationSetup:
         # Verify services exist
         assert hass.services.has_service(DOMAIN, OPB_SERVICE_SEARCH)
         assert hass.services.has_service(DOMAIN, OPB_SERVICE_GET)
+        assert hass.services.has_service(DOMAIN, OPB_SERVICE_UPLOAD)
 
         # Unload
         await hass.config_entries.async_unload(init_integration.entry_id)
         await hass.async_block_till_done()
 
-        # Services should be removed
+        # All registered services should be removed (including upload)
         assert not hass.services.has_service(DOMAIN, OPB_SERVICE_SEARCH)
         assert not hass.services.has_service(DOMAIN, OPB_SERVICE_GET)
+        assert not hass.services.has_service(DOMAIN, OPB_SERVICE_CLEAN_CACHE)
+        assert not hass.services.has_service(DOMAIN, OPB_SERVICE_UPLOAD)
 
 
 class TestSearchService:

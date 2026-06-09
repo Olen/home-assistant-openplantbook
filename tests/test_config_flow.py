@@ -167,6 +167,63 @@ class TestConfigFlow:
             assert result["data"][CONF_CLIENT_SECRET] == "valid_secret"
             assert result["options"][FLOW_UPLOAD_DATA] is True
 
+    async def test_created_entry_has_unique_id(
+        self,
+        hass: HomeAssistant,
+    ) -> None:
+        """A newly created entry gets the client_id as its unique_id."""
+        with patch(
+            "custom_components.openplantbook.config_flow.OpenPlantBookApi"
+        ) as mock_api_class:
+            mock_api = MagicMock()
+            mock_api._async_get_token = AsyncMock(return_value="test_token")
+            mock_api_class.return_value = mock_api
+
+            result = await hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": config_entries.SOURCE_USER}
+            )
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"],
+                {CONF_CLIENT_ID: "valid_id", CONF_CLIENT_SECRET: "valid_secret"},
+            )
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"],
+                {
+                    FLOW_UPLOAD_DATA: False,
+                    FLOW_UPLOAD_HASS_LOCATION_COUNTRY: False,
+                    FLOW_UPLOAD_HASS_LOCATION_COORD: False,
+                },
+            )
+
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        entries = hass.config_entries.async_entries(DOMAIN)
+        assert entries[0].unique_id == "valid_id"
+
+    async def test_second_entry_aborts_single_instance(
+        self,
+        hass: HomeAssistant,
+    ) -> None:
+        """A second config entry is blocked: this is a single-instance integration.
+
+        The shared global hass.data[DOMAIN] (single API client, single
+        search_result entity_id) means a second entry would clobber the first, so
+        `single_config_entry` in the manifest aborts the flow before it starts,
+        regardless of the client_id.
+        """
+        existing = MockConfigEntry(
+            domain=DOMAIN,
+            data={CONF_CLIENT_ID: "first", CONF_CLIENT_SECRET: "secret"},
+            unique_id="first",
+        )
+        existing.add_to_hass(hass)
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+
+        assert result["type"] == FlowResultType.ABORT
+        assert result["reason"] == "single_instance_allowed"
+
 
 class TestOptionsFlow:
     """Tests for the options flow."""
