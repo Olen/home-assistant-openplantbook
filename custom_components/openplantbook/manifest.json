@@ -20,5 +20,5 @@
     "openplantbook-sdk==0.6.1"
   ],
   "single_config_entry": true,
-  "version": "1.6.0-beta1"
+  "version": "1.6.0"
 }
