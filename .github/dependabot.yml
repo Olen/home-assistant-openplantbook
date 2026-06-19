@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # GitHub Actions — all action bumps grouped into one weekly PR to limit noise.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Python test tooling from requirements.test.txt, grouped so patch/minor
+  # updates land together rather than as many PRs.
+  #
+  # Runtime requirements live in custom_components/openplantbook/manifest.json,
+  # which Dependabot cannot parse — json-timeseries and openplantbook-sdk are
+  # updated manually.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "build"
+    labels:
+      - "dependencies"
+      - "python"
