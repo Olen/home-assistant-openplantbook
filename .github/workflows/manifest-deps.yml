@@ -1,0 +1,78 @@
+name: Manifest dependency monitoring
+
+# Informs (does not edit) when a pinned manifest.json requirement has a newer
+# release on PyPI, by maintaining a single GitHub issue. The manifest stays the
+# hand-edited source of truth.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  freshness:
+    name: Check manifest dependency freshness
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install packaging
+
+      - name: Check freshness
+        id: check
+        env:
+          FRESHNESS_BODY: manifest_freshness_body.md
+        run: python scripts/check_manifest_freshness.py
+
+      - name: Manage tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COUNT: ${{ steps.check.outputs.count }}
+          BODY_FILE: manifest_freshness_body.md
+          LABEL: dependency-freshness
+          TITLE: "Manifest dependency updates available"
+        run: |
+          set -euo pipefail
+
+          # Ensure the tracking label exists (idempotent).
+          gh label create "$LABEL" \
+            --color FBCA04 \
+            --description "Available updates for manifest.json requirements" \
+            --force >/dev/null 2>&1 || true
+
+          # Find the existing managed issue, if any (open or closed).
+          number=$(gh issue list --label "$LABEL" --state all --limit 1 \
+            --json number --jq '.[0].number // empty')
+
+          if [ "${COUNT:-0}" -gt 0 ]; then
+            if [ -n "$number" ]; then
+              gh issue reopen "$number" >/dev/null 2>&1 || true
+              gh issue edit "$number" --body-file "$BODY_FILE" >/dev/null
+              echo "Updated tracking issue #$number"
+            else
+              gh issue create --title "$TITLE" --label "$LABEL" \
+                --body-file "$BODY_FILE"
+            fi
+          else
+            if [ -n "$number" ]; then
+              state=$(gh issue view "$number" --json state --jq .state)
+              if [ "$state" = "OPEN" ]; then
+                gh issue comment "$number" \
+                  --body "All manifest dependencies are up to date. Closing."
+                gh issue close "$number" >/dev/null
+                echo "Closed tracking issue #$number"
+              fi
+            fi
+            echo "All pinned manifest dependencies are up to date."
+          fi
