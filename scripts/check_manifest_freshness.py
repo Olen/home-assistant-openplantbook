@@ -33,6 +33,19 @@ DEFAULT_MANIFEST = (
 PYPI_URL = "https://pypi.org/pypi/{name}/json"
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuse to follow redirects, so a request can't leave the guarded URL."""
+
+    def redirect_request(self, *args, **kwargs):  # noqa: D102
+        return None
+
+
+# Opener that does not follow redirects: combined with the https://pypi.org/
+# guard in fetch_latest_pypi, the request can only ever reach PyPI over https.
+# Any 3xx surfaces as a non-200 status and is treated as a failed lookup.
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
 @dataclass(frozen=True)
 class Outdated:
     """A pinned requirement that has a newer release on PyPI."""
@@ -96,9 +109,10 @@ def fetch_latest_pypi(name: str) -> str | None:
     request = urllib.request.Request(url, method="GET")
     try:
         # URL is a constant https PyPI endpoint with a canonicalised package
-        # name from our own manifest, and is guarded above; not user input.
+        # name from our own manifest, guarded above, and redirects are refused
+        # by _OPENER; not user input and can't leave pypi.org.
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        with urllib.request.urlopen(request, timeout=30) as resp:
+        with _OPENER.open(request, timeout=30) as resp:
             if resp.status != 200:
                 return None
             data = json.load(resp)
