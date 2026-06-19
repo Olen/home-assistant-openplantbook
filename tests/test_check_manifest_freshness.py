@@ -2,13 +2,7 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-# The checker lives in scripts/, which is not a package on the path.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-
-from check_manifest_freshness import (  # noqa: E402
+from scripts.check_manifest_freshness import (
     Outdated,
     find_outdated,
     pinned_requirements,
