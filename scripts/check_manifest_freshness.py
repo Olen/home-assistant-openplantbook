@@ -36,7 +36,7 @@ PYPI_URL = "https://pypi.org/pypi/{name}/json"
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     """Refuse to follow redirects, so a request can't leave the guarded URL."""
 
-    def redirect_request(self, *args, **kwargs):  # noqa: D102
+    def redirect_request(self, *args, **kwargs):
         return None
 
 
@@ -143,7 +143,7 @@ def _set_output(name: str, value: str) -> None:
     """Append ``name=value`` to the GitHub Actions output file, if present."""
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
-        with open(output, "a", encoding="utf-8") as handle:
+        with Path(output).open("a", encoding="utf-8") as handle:
             handle.write(f"{name}={value}\n")
 
 
