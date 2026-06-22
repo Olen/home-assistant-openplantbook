@@ -37,3 +37,4 @@ known-first-party = ["custom_components.openplantbook"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E402"]  # Allow imports not at top of file in tests
+"scripts/*" = ["T201"]  # CLI helper scripts print to stdout by design
