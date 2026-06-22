@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
@@ -63,10 +63,12 @@ async def validate_input(hass: core.HomeAssistant, data: dict) -> dict[str, str]
         raise ValueError from ex
     # If any of credentials are empty
     except (KeyError, MissingClientIdOrSecret) as ex:
+        # Logs the exception object, not any credential value (false positive).
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         _LOGGER.debug("API client_id and/or client secret are invalid: %s", ex)
         raise ValueError from ex
-    except Exception as ex:
-        _LOGGER.error("Unable to connect to OpenPlantbook: %s", ex)
+    except Exception:
+        _LOGGER.exception("Unable to connect to OpenPlantbook")
         raise
 
     return {TITLE: "Openplantbook API"}
@@ -217,10 +219,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             return True
         download_path = user_input.get(FLOW_DOWNLOAD_PATH)
         # If path is relative, we assume relative to Home Assistant config dir
-        if not os.path.isabs(download_path):
+        if not Path(download_path).is_absolute():
             download_path = self.hass.config.path(download_path)
 
-        if not os.path.isdir(download_path):
+        if not await self.hass.async_add_executor_job(Path(download_path).is_dir):
             _LOGGER.error(
                 "Download path %s is invalid",
                 download_path,

@@ -158,7 +158,7 @@ async def plant_data_upload(
 
     plant_devices = []
     # Looking for Plant-component's devices
-    for i, d in device_reg.devices.data.items():
+    for d in device_reg.devices.data.values():
         if "plant" in str(d.identifiers) and d.name_by_user is None:
             plant_devices.append(d)
 
@@ -236,7 +236,7 @@ async def plant_data_upload(
                         search_text=opb_pid
                     )
 
-                    if search_res["count"] == 1:
+                    if search_res["count"] == 1:  # noqa: SIM102 - clearer as nested
                         if opb_pid == search_res["results"][0]["display_pid"]:
                             opb_disp_pid = opb_pid
                             opb_pid = search_res["results"][0]["pid"]
@@ -295,7 +295,7 @@ async def plant_data_upload(
             # Get OpenPlantbook generated ID for the Plant-instance
             custom_id = res[0]["id"]
         except (IndexError, KeyError, TypeError):
-            _LOGGER.error("Cannot parse API response: %s", res)
+            _LOGGER.exception("Cannot parse API response: %s", res)
             continue
 
         # Get the latest_data timestamp from OPB response
@@ -422,33 +422,32 @@ async def plant_data_upload(
             "successful" if res else "failure",
         )
         return {"result": res}
+    _LOGGER.info("Found no sensors data to upload")
+
+    if latest_data:
+        days_since_upload = dt_util.now(dt.UTC) - dt_util.parse_datetime(
+            latest_data
+        ).astimezone(dt.UTC)
+        if (days_since_upload.days > 3) and dt_util.now(dt.UTC).weekday() == 4:
+            _LOGGER.warning(
+                "The last time plant sensors data was successfully uploaded %s days ago. This may indicate a "
+                "problem with Plants sensors or this integration. Please enable OpenPlantbook integration's debug "
+                "logging for more information. "
+                "You may report this issue via GitHub or support@plantbook.io attaching the debug log if you "
+                "believe it is a bug.",
+                days_since_upload.days,
+            )
     else:
-        _LOGGER.info("Found no sensors data to upload")
+        # no latest_data in the OPB API indicates that the data has never been uploaded successfully for the plant
+        if dt_util.now(dt.UTC).weekday() == 6:
+            _LOGGER.warning(
+                "Plants sensors data has never been uploaded successfully. This may indicate a problem with the sensors "
+                "or this integration. Please enable OpenPlantbook integration's debug logging for more information. "
+                "You may report this issue via GitHub or support@plantbook.io attaching the debug log if you "
+                "believe it is a bug."
+            )
 
-        if latest_data:
-            days_since_upload = dt_util.now(dt.UTC) - dt_util.parse_datetime(
-                latest_data
-            ).astimezone(dt.UTC)
-            if (days_since_upload.days > 3) and dt_util.now(dt.UTC).weekday() == 4:
-                _LOGGER.warning(
-                    "The last time plant sensors data was successfully uploaded %s days ago. This may indicate a "
-                    "problem with Plants sensors or this integration. Please enable OpenPlantbook integration's debug "
-                    "logging for more information. "
-                    "You may report this issue via GitHub or support@plantbook.io attaching the debug log if you "
-                    "believe it is a bug.",
-                    days_since_upload.days,
-                )
-        else:
-            # no latest_data in the OPB API indicates that the data has never been uploaded successfully for the plant
-            if dt_util.now(dt.UTC).weekday() == 6:
-                _LOGGER.warning(
-                    "Plants sensors data has never been uploaded successfully. This may indicate a problem with the sensors "
-                    "or this integration. Please enable OpenPlantbook integration's debug logging for more information. "
-                    "You may report this issue via GitHub or support@plantbook.io attaching the debug log if you "
-                    "believe it is a bug."
-                )
-
-        return None
+    return None
 
 
 async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -> None:

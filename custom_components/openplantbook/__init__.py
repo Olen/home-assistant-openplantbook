@@ -7,6 +7,7 @@ import re
 import urllib.parse
 from asyncio import timeout as async_timeout
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import voluptuous as vol
 from homeassistant import exceptions
@@ -249,7 +250,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 ) from err
             except PermissionError as err:
                 plant_data = None
-                _LOGGER.error(
+                _LOGGER.exception(
                     "Authentication failed while fetching data for %s. Please reconfigure the integration",
                     species,
                 )
@@ -257,7 +258,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise InvalidAuth("Authentication failed") from err
             except MissingClientIdOrSecret:
                 plant_data = None
-                _LOGGER.error(
+                _LOGGER.exception(
                     "Missing client ID or secret. Please set up the integration again"
                 )
                 del hass.data[DOMAIN][ATTR_SPECIES][species]
@@ -280,19 +281,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     # saved filename stays stable across refreshes.
                     filename = slugify(
                         urllib.parse.unquote(
-                            os.path.basename(
+                            Path(
                                 urllib.parse.urlparse(plant_data[ATTR_IMAGE]).path
-                            )
+                            ).name
                         ),
                         separator=" ",
                     ).replace(" jpg", ".jpg")
                     raise_if_invalid_filename(filename)
                     download_path = entry.options.get(FLOW_DOWNLOAD_PATH)
-                    if not os.path.isabs(download_path):
+                    if not Path(download_path).is_absolute():
                         download_path = hass.config.path(download_path)
 
-                    final_path = os.path.join(download_path, filename)
-                    if os.path.isfile(final_path):
+                    final_path = str(Path(download_path) / filename)
+                    if await hass.async_add_executor_job(Path(final_path).is_file):
                         _LOGGER.warning("Filename %s already exists", final_path)
                         downloaded_file = final_path
                     else:
@@ -326,7 +327,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 return plant_data
             del hass.data[DOMAIN][ATTR_SPECIES][species]
             return {}
-        elif OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
+        if OPB_PID not in hass.data[DOMAIN][ATTR_SPECIES][species]:
             # If more than one "get_plant" is triggered for the same species, we wait for up to
             # 10 seconds for the first process to complete the API request.
             # We don't want to return immediately, as we want the state object to be set by
@@ -353,17 +354,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await asyncio.sleep(1)
             _LOGGER.debug("The other process completed successfully")
             return hass.data[DOMAIN][ATTR_SPECIES][species]
-        elif datetime.now() < datetime.fromisoformat(
+        if datetime.now() < datetime.fromisoformat(
             hass.data[DOMAIN][ATTR_SPECIES][species][OPB_ATTR_TIMESTAMP]
         ) + timedelta(hours=CACHE_TIME):
             # We already have the data we need, so let's just return
             _LOGGER.debug("We already have cached data for %s", species)
             return hass.data[DOMAIN][ATTR_SPECIES][species]
-        else:
-            del hass.data[DOMAIN][ATTR_SPECIES][species]
-            raise OpenPlantbookException(
-                "an unknown error occurred while fetching data for species %s", species
-            )
+        del hass.data[DOMAIN][ATTR_SPECIES][species]
+        raise OpenPlantbookException(
+            "an unknown error occurred while fetching data for species %s", species
+        )
 
     async def search_plantbook(call: ServiceCall) -> ServiceResponse:
         if DOMAIN not in hass.data:
@@ -383,13 +383,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "OpenPlantbook API rate limit exceeded. Please try again later."
             ) from err
         except PermissionError as err:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "Authentication failed while searching for %s. Please reconfigure the integration",
                 alias,
             )
             raise InvalidAuth("Authentication failed") from err
         except MissingClientIdOrSecret:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "Missing client ID or secret. Please set up the integration again"
             )
             raise
@@ -452,7 +452,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     def _write_file(path: str, data: bytes) -> None:
         """Write binary data to a file (runs in executor)."""
-        with open(path, "wb") as fil:
+        with Path(path).open("wb") as fil:
             fil.write(data)
 
     async def async_download_image(url: str, download_to: str) -> str | bool:
