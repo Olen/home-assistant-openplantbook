@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.core import HomeAssistant
@@ -24,8 +23,8 @@ from custom_components.openplantbook.const import (
 class TestEnrichPlantDataWithDli:
     """Unit tests for _enrich_plant_data_with_dli."""
 
-    def test_normal_ratio_uses_0036_factor(self):
-        """Test that normal mmol/lux ratio uses × 0.0036 conversion."""
+    def test_full_sun_plant_uses_divide_1000(self):
+        """Test that mmol values are converted to DLI via / 1000."""
         # Capsicum annuum: full sun plant
         data = {
             OPB_DISPLAY_PID: "Capsicum annuum",
@@ -36,17 +35,16 @@ class TestEnrichPlantDataWithDli:
         }
         _enrich_plant_data_with_dli(data)
 
-        assert data[OPB_MAX_DLI] == 43.2  # 12000 × 0.0036
-        assert data[OPB_MIN_DLI] == 12.6  # 3500 × 0.0036
+        assert data[OPB_MAX_DLI] == 12.0  # 12000 / 1000
+        assert data[OPB_MIN_DLI] == 3.5  # 3500 / 1000
 
-    def test_high_ratio_uses_divide_1000(self):
-        """Test that high mmol/lux ratio switches to / 1000 conversion."""
-        # Simulated data where mmol values are daily integrals
+    def test_moderate_light_plant(self):
+        """Test conversion for moderate light plant."""
         data = {
             OPB_DISPLAY_PID: "Test plant",
             OPB_MAX_LIGHT_MMOL: 6000,
             OPB_MIN_LIGHT_MMOL: 2000,
-            OPB_MAX_LIGHT_LUX: 2500,  # ratio = 6000/2500 = 2.4 (> 0.5)
+            OPB_MAX_LIGHT_LUX: 2500,
             "min_light_lux": 500,
         }
         _enrich_plant_data_with_dli(data)
@@ -54,20 +52,19 @@ class TestEnrichPlantDataWithDli:
         assert data[OPB_MAX_DLI] == 6.0  # 6000 / 1000
         assert data[OPB_MIN_DLI] == 2.0  # 2000 / 1000
 
-    def test_low_ratio_warns_and_uses_default(self, caplog):
-        """Test that unusually low ratio logs warning but uses × 0.0036."""
+    def test_low_light_plant(self):
+        """Test conversion for low light plant."""
         data = {
-            OPB_DISPLAY_PID: "Weird plant",
+            OPB_DISPLAY_PID: "Shade plant",
             OPB_MAX_LIGHT_MMOL: 100,
             OPB_MIN_LIGHT_MMOL: 10,
-            OPB_MAX_LIGHT_LUX: 50000,  # ratio = 100/50000 = 0.002 (< 0.02)
+            OPB_MAX_LIGHT_LUX: 50000,
             "min_light_lux": 5000,
         }
-        with caplog.at_level(logging.WARNING):
-            _enrich_plant_data_with_dli(data)
+        _enrich_plant_data_with_dli(data)
 
-        assert data[OPB_MAX_DLI] == 0.4  # 100 × 0.0036 = 0.36, rounded to 0.4
-        assert "Unusual mmol/lux ratio" in caplog.text
+        assert data[OPB_MAX_DLI] == 0.1  # 100 / 1000
+        assert data[OPB_MIN_DLI] == 0.0  # 10 / 1000 = 0.01, rounded to 0.0
 
     def test_no_mmol_values(self):
         """Test that missing mmol values result in no DLI attributes."""
@@ -81,8 +78,8 @@ class TestEnrichPlantDataWithDli:
         assert OPB_MAX_DLI not in data
         assert OPB_MIN_DLI not in data
 
-    def test_no_lux_values_uses_default_factor(self):
-        """Test that missing lux values still compute DLI with default factor."""
+    def test_no_lux_values_still_computes_dli(self):
+        """Test that missing lux values still compute DLI."""
         data = {
             OPB_DISPLAY_PID: "No lux plant",
             OPB_MAX_LIGHT_MMOL: 5000,
@@ -90,11 +87,11 @@ class TestEnrichPlantDataWithDli:
         }
         _enrich_plant_data_with_dli(data)
 
-        assert data[OPB_MAX_DLI] == 18.0  # 5000 × 0.0036
-        assert data[OPB_MIN_DLI] == 2.9  # 800 × 0.0036 = 2.88
+        assert data[OPB_MAX_DLI] == 5.0  # 5000 / 1000
+        assert data[OPB_MIN_DLI] == 0.8  # 800 / 1000
 
-    def test_zero_lux_uses_default_factor(self):
-        """Test that zero lux avoids division by zero and uses default factor."""
+    def test_zero_lux_still_computes_dli(self):
+        """Test that zero lux still computes DLI (lux not used)."""
         data = {
             OPB_DISPLAY_PID: "Zero lux plant",
             OPB_MAX_LIGHT_MMOL: 5000,
@@ -103,8 +100,8 @@ class TestEnrichPlantDataWithDli:
         }
         _enrich_plant_data_with_dli(data)
 
-        assert data[OPB_MAX_DLI] == 18.0
-        assert data[OPB_MIN_DLI] == 2.9
+        assert data[OPB_MAX_DLI] == 5.0
+        assert data[OPB_MIN_DLI] == 0.8
 
     def test_only_max_mmol(self):
         """Test with only max_light_mmol present."""
@@ -115,7 +112,7 @@ class TestEnrichPlantDataWithDli:
         }
         _enrich_plant_data_with_dli(data)
 
-        assert data[OPB_MAX_DLI] == 28.8
+        assert data[OPB_MAX_DLI] == 8.0  # 8000 / 1000
         assert OPB_MIN_DLI not in data
 
     def test_only_min_mmol(self):
@@ -128,57 +125,61 @@ class TestEnrichPlantDataWithDli:
         _enrich_plant_data_with_dli(data)
 
         assert OPB_MAX_DLI not in data
-        assert data[OPB_MIN_DLI] == 5.4
+        assert data[OPB_MIN_DLI] == 1.5  # 1500 / 1000
 
-    def test_borderline_ratio_at_max_threshold(self):
-        """Test ratio exactly at 0.5 uses × 0.0036."""
+    def test_high_light_plant(self):
+        """Test conversion for high light plant."""
         data = {
-            OPB_DISPLAY_PID: "Borderline plant",
+            OPB_DISPLAY_PID: "High light plant",
             OPB_MAX_LIGHT_MMOL: 5000,
             OPB_MIN_LIGHT_MMOL: 1000,
-            OPB_MAX_LIGHT_LUX: 10000,  # ratio = 0.5 exactly
+            OPB_MAX_LIGHT_LUX: 10000,
         }
         _enrich_plant_data_with_dli(data)
 
-        assert data[OPB_MAX_DLI] == 18.0  # × 0.0036
-        assert data[OPB_MIN_DLI] == 3.6
+        assert data[OPB_MAX_DLI] == 5.0  # 5000 / 1000
+        assert data[OPB_MIN_DLI] == 1.0  # 1000 / 1000
 
-    def test_ratio_just_above_max_uses_divide_1000(self):
-        """Test ratio just above 0.5 switches to / 1000."""
+    def test_very_high_mmol(self):
+        """Test conversion for very high mmol values."""
         data = {
-            OPB_DISPLAY_PID: "Just above plant",
+            OPB_DISPLAY_PID: "Very high plant",
             OPB_MAX_LIGHT_MMOL: 5100,
             OPB_MIN_LIGHT_MMOL: 1000,
-            OPB_MAX_LIGHT_LUX: 10000,  # ratio = 0.51
+            OPB_MAX_LIGHT_LUX: 10000,
         }
         _enrich_plant_data_with_dli(data)
 
-        assert data[OPB_MAX_DLI] == 5.1  # / 1000
+        assert data[OPB_MAX_DLI] == 5.1  # 5100 / 1000
         assert data[OPB_MIN_DLI] == 1.0
 
-    def test_high_ratio_logs_info(self, caplog):
-        """Test that high ratio conversion logs an info message."""
+    def test_extreme_mmol_values(self):
+        """Test conversion for extreme mmol values."""
         data = {
-            OPB_DISPLAY_PID: "Daily integral plant",
+            OPB_DISPLAY_PID: "Extreme light plant",
             OPB_MAX_LIGHT_MMOL: 30000,
             OPB_MIN_LIGHT_MMOL: 5000,
-            OPB_MAX_LIGHT_LUX: 10000,  # ratio = 3.0
+            OPB_MAX_LIGHT_LUX: 10000,
         }
-        with caplog.at_level(logging.INFO):
-            _enrich_plant_data_with_dli(data)
+        _enrich_plant_data_with_dli(data)
 
-        assert "daily integrals" in caplog.text
-        assert data[OPB_MAX_DLI] == 30.0
-        assert data[OPB_MIN_DLI] == 5.0
+        assert data[OPB_MAX_DLI] == 30.0  # 30000 / 1000
+        assert data[OPB_MIN_DLI] == 5.0   # 5000 / 1000
 
     def test_known_plants_produce_reasonable_dli(self):
-        """Test that known plants from OPB produce reasonable DLI values."""
-        # Data from actual OPB API responses
+        """Test that known plants from OPB produce reasonable DLI values.
+
+        DLI reference ranges from House Plant Journal PAR-meter data:
+        - Capsicum (full sun): 8-20 mol/m²/d
+        - Monstera (moderate): 2-5 mol/m²/d
+        - Ficus elastica (moderate): 4-12 mol/m²/d
+        """
+        # Data from actual OPB API responses, converted via /1000
         plants = [
             # (name, max_mmol, max_lux, expected_dli_range)
-            ("Capsicum annuum", 12000, 95000, (30, 60)),  # full sun
-            ("Monstera deliciosa", 5000, 30000, (10, 25)),  # medium-high
-            ("Ficus elastica", 4000, 25000, (10, 20)),  # medium
+            ("Capsicum annuum", 12000, 95000, (8, 20)),  # full sun: 12.0 DLI
+            ("Monstera deliciosa", 5000, 30000, (2, 8)),  # moderate: 5.0 DLI
+            ("Ficus elastica", 4000, 25000, (2, 12)),  # moderate: 4.0 DLI
         ]
         for name, max_mmol, max_lux, (dli_min, dli_max) in plants:
             data = {
@@ -224,14 +225,14 @@ class TestDliConversionIntegration:
             return_response=True,
         )
 
-        assert result[OPB_MAX_DLI] == 43.2
-        assert result[OPB_MIN_DLI] == 12.6
+        assert result[OPB_MAX_DLI] == 12.0  # 12000 / 1000
+        assert result[OPB_MIN_DLI] == 3.5   # 3500 / 1000
 
         # Also verify entity state has the DLI attributes
         state = hass.states.get("openplantbook.capsicum_annuum")
         assert state is not None
-        assert state.attributes[OPB_MAX_DLI] == 43.2
-        assert state.attributes[OPB_MIN_DLI] == 12.6
+        assert state.attributes[OPB_MAX_DLI] == 12.0
+        assert state.attributes[OPB_MIN_DLI] == 3.5
 
     async def test_get_plant_without_mmol_has_no_dli(
         self,
