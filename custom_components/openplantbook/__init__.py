@@ -42,12 +42,12 @@ from .const import (
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
     FLOW_SEND_LANG,
+    MMOL_TO_DLI_FACTOR,
     OPB_ATTR_INCLUDES,
     OPB_ATTR_RESULTS,
     OPB_ATTR_TIMESTAMP,
     OPB_DISPLAY_PID,
     OPB_MAX_DLI,
-    OPB_MAX_LIGHT_LUX,
     OPB_MAX_LIGHT_MMOL,
     OPB_MIN_DLI,
     OPB_MIN_LIGHT_MMOL,
@@ -74,17 +74,17 @@ def _enrich_plant_data_with_dli(plant_data: dict) -> None:
 
     Adds max_dli and min_dli attributes to the plant data dict.
 
-    OPB mmol values are daily integrals (mmol/m²/d) — divide by 1000
-    to get mol/m²/d (DLI). No ratio-based auto-detection needed; the
-    PPFD x photoperiod interpretation was incorrect.
+    OPB mmol values are daily integrals (mmol/m²/d) — a plain mmol→mol unit
+    conversion (MMOL_TO_DLI_FACTOR) yields mol/m²/d (DLI). No ratio-based
+    auto-detection needed; the PPFD x photoperiod interpretation was incorrect.
     """
     max_mmol = plant_data.get(OPB_MAX_LIGHT_MMOL)
     min_mmol = plant_data.get(OPB_MIN_LIGHT_MMOL)
 
     if max_mmol is not None:
-        plant_data[OPB_MAX_DLI] = round(float(max_mmol) / 1000, 1)
+        plant_data[OPB_MAX_DLI] = round(float(max_mmol) * MMOL_TO_DLI_FACTOR, 1)
     if min_mmol is not None:
-        plant_data[OPB_MIN_DLI] = round(float(min_mmol) / 1000, 1)
+        plant_data[OPB_MIN_DLI] = round(float(min_mmol) * MMOL_TO_DLI_FACTOR, 1)
 
 
 def _parse_includes(include: str | None) -> set[str]:

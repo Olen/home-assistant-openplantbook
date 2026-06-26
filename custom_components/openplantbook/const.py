@@ -54,3 +54,7 @@ FLOW_UPLOAD_HASS_LOCATION_COUNTRY = "upload_data_hass_location_country"
 FLOW_UPLOAD_HASS_LOCATION_COORD = "upload_data_hass_location_coordinates"
 # New option: control whether to send Home Assistant language to OpenPlantbook API
 FLOW_SEND_LANG = "use_ha_language"
+
+# DLI conversion: OpenPlantbook mmol light values are daily integrals
+# (mmol/m²/d), so DLI (mol/m²/d) is a plain millimole→mole unit conversion.
+MMOL_TO_DLI_FACTOR = 0.001

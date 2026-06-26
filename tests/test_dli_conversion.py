@@ -164,7 +164,7 @@ class TestEnrichPlantDataWithDli:
         _enrich_plant_data_with_dli(data)
 
         assert data[OPB_MAX_DLI] == 30.0  # 30000 / 1000
-        assert data[OPB_MIN_DLI] == 5.0   # 5000 / 1000
+        assert data[OPB_MIN_DLI] == 5.0  # 5000 / 1000
 
     def test_known_plants_produce_reasonable_dli(self):
         """Test that known plants from OPB produce reasonable DLI values.
@@ -174,12 +174,13 @@ class TestEnrichPlantDataWithDli:
         - Monstera (moderate): 2-5 mol/m²/d
         - Ficus elastica (moderate): 4-12 mol/m²/d
         """
-        # Data from actual OPB API responses, converted via /1000
+        # Data from actual OPB API responses, converted via the mmol→mol factor.
+        # Expected ranges match the House Plant Journal references above.
         plants = [
             # (name, max_mmol, max_lux, expected_dli_range)
             ("Capsicum annuum", 12000, 95000, (8, 20)),  # full sun: 12.0 DLI
-            ("Monstera deliciosa", 5000, 30000, (2, 8)),  # moderate: 5.0 DLI
-            ("Ficus elastica", 4000, 25000, (2, 12)),  # moderate: 4.0 DLI
+            ("Monstera deliciosa", 5000, 30000, (2, 5)),  # moderate: 5.0 DLI
+            ("Ficus elastica", 4000, 25000, (4, 12)),  # moderate: 4.0 DLI
         ]
         for name, max_mmol, max_lux, (dli_min, dli_max) in plants:
             data = {
@@ -226,7 +227,7 @@ class TestDliConversionIntegration:
         )
 
         assert result[OPB_MAX_DLI] == 12.0  # 12000 / 1000
-        assert result[OPB_MIN_DLI] == 3.5   # 3500 / 1000
+        assert result[OPB_MIN_DLI] == 3.5  # 3500 / 1000
 
         # Also verify entity state has the DLI attributes
         state = hass.states.get("openplantbook.capsicum_annuum")
