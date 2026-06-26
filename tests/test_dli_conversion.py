@@ -7,8 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.openplantbook import _enrich_plant_data_with_dli
+from custom_components.openplantbook import _clamp_dli, _enrich_plant_data_with_dli
 from custom_components.openplantbook.const import (
+    DLI_SANITY_MAX,
     DOMAIN,
     OPB_DISPLAY_PID,
     OPB_MAX_DLI,
@@ -192,6 +193,38 @@ class TestEnrichPlantDataWithDli:
             assert (
                 dli_min <= data[OPB_MAX_DLI] <= dli_max
             ), f"{name}: max_dli={data[OPB_MAX_DLI]} not in range {dli_min}-{dli_max}"
+
+
+class TestDliSanityClamp:
+    """Tests for the DLI sanity clamp on converted values."""
+
+    def test_value_in_band_unchanged(self):
+        """A plausible DLI passes through untouched."""
+        assert _clamp_dli(12.0, "max", "Capsicum annuum") == 12.0
+        assert _clamp_dli(0.7, "min", "Pellaea rotundifolia") == 0.7
+
+    def test_near_zero_minimum_not_clamped(self):
+        """Legitimate deep-shade minimums (rounding toward 0) are preserved."""
+        assert _clamp_dli(0.0, "min", "Pellaea rotundifolia") == 0.0
+
+    def test_clamps_impossible_high_value(self, caplog):
+        """A value above Earth's physical max DLI is clamped + warned."""
+        result = _clamp_dli(120.0, "max", "Corrupt entry")
+        assert result == DLI_SANITY_MAX
+        assert "exceeds the plausible maximum" in caplog.text
+
+    def test_enrich_clamps_absurd_mmol(self, caplog):
+        """End-to-end: an absurd max_light_mmol yields a clamped DLI."""
+        # 100000000 mmol would be 100000 mol/m²/d — clearly corrupt source data.
+        data = {
+            OPB_DISPLAY_PID: "Corrupt entry",
+            OPB_MAX_LIGHT_MMOL: 100000000,
+            OPB_MIN_LIGHT_MMOL: 2000,
+        }
+        _enrich_plant_data_with_dli(data)
+        assert data[OPB_MAX_DLI] == DLI_SANITY_MAX
+        assert data[OPB_MIN_DLI] == 2.0  # normal value untouched
+        assert "exceeds the plausible maximum" in caplog.text
 
 
 class TestDliConversionIntegration:

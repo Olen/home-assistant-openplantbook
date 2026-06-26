@@ -58,3 +58,10 @@ FLOW_SEND_LANG = "use_ha_language"
 # DLI conversion: OpenPlantbook mmol light values are daily integrals
 # (mmol/m²/d), so DLI (mol/m²/d) is a plain millimole→mole unit conversion.
 MMOL_TO_DLI_FACTOR = 0.001
+
+# Physical ceiling for DLI (mol/m²/d): ~65 is the maximum daily light integral
+# attainable at Earth's surface (full tropical sun, clear sky, long day).
+# OpenPlantbook aggregates loosely validated, multi-source data; a converted
+# value above this is biologically impossible and signals suspect data, so it
+# is clamped. No lower guard: legitimate deep-shade minimums round toward 0.
+DLI_SANITY_MAX = 65.0
