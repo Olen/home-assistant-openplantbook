@@ -38,6 +38,7 @@ from .const import (
     DATA_COMPONENT,
     DATA_SEARCH_ENTITY,
     DATA_SPECIES_ENTITIES,
+    DLI_SANITY_MAX,
     DOMAIN,
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
@@ -77,14 +78,44 @@ def _enrich_plant_data_with_dli(plant_data: dict) -> None:
     OPB mmol values are daily integrals (mmol/m²/d) — a plain mmol→mol unit
     conversion (MMOL_TO_DLI_FACTOR) yields mol/m²/d (DLI). No ratio-based
     auto-detection needed; the PPFD x photoperiod interpretation was incorrect.
+
+    The result is clamped to the physical maximum DLI: OPB aggregates loosely
+    validated, multi-source data, so a stray unit mix-up could otherwise yield
+    a biologically impossible threshold.
     """
+    pid = plant_data.get(OPB_DISPLAY_PID, "unknown")
     max_mmol = plant_data.get(OPB_MAX_LIGHT_MMOL)
     min_mmol = plant_data.get(OPB_MIN_LIGHT_MMOL)
 
     if max_mmol is not None:
-        plant_data[OPB_MAX_DLI] = round(float(max_mmol) * MMOL_TO_DLI_FACTOR, 1)
+        plant_data[OPB_MAX_DLI] = _clamp_dli(
+            round(float(max_mmol) * MMOL_TO_DLI_FACTOR, 1), "max", pid
+        )
     if min_mmol is not None:
-        plant_data[OPB_MIN_DLI] = round(float(min_mmol) * MMOL_TO_DLI_FACTOR, 1)
+        plant_data[OPB_MIN_DLI] = _clamp_dli(
+            round(float(min_mmol) * MMOL_TO_DLI_FACTOR, 1), "min", pid
+        )
+
+
+def _clamp_dli(value: float, bound: str, pid: str) -> float:
+    """Clamp a converted DLI to the physical maximum, warning if exceeded.
+
+    Only an upper guard is applied: terrestrial DLI cannot exceed ~65 mol/m²/d,
+    so a higher value signals suspect OPB data. There is deliberately no lower
+    guard — legitimate deep-shade species have minimums that round toward 0, and
+    clamping those would corrupt valid data.
+    """
+    if value > DLI_SANITY_MAX:
+        _LOGGER.warning(
+            "%s DLI %s mol/m²/d for %s exceeds the plausible maximum %s; "
+            "clamping (check the OpenPlantbook source data)",
+            bound,
+            value,
+            pid,
+            DLI_SANITY_MAX,
+        )
+        return DLI_SANITY_MAX
+    return value
 
 
 def _parse_includes(include: str | None) -> set[str]:
