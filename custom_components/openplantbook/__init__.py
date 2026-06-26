@@ -42,15 +42,12 @@ from .const import (
     FLOW_DOWNLOAD_IMAGES,
     FLOW_DOWNLOAD_PATH,
     FLOW_SEND_LANG,
-    MMOL_LUX_RATIO_MAX,
-    MMOL_LUX_RATIO_MIN,
     MMOL_TO_DLI_FACTOR,
     OPB_ATTR_INCLUDES,
     OPB_ATTR_RESULTS,
     OPB_ATTR_TIMESTAMP,
     OPB_DISPLAY_PID,
     OPB_MAX_DLI,
-    OPB_MAX_LIGHT_LUX,
     OPB_MAX_LIGHT_MMOL,
     OPB_MIN_DLI,
     OPB_MIN_LIGHT_MMOL,
@@ -73,52 +70,21 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _enrich_plant_data_with_dli(plant_data: dict) -> None:
-    """Convert OpenPlantbook mmol light values to DLI (mol/d/m²).
+    """Convert OpenPlantbook mmol light values to DLI (mol/m²/d).
 
     Adds max_dli and min_dli attributes to the plant data dict.
 
-    The conversion depends on what the mmol values represent, detected via
-    the mmol/lux ratio:
-    - Ratio 0.02–0.5: mmol encodes PPFD × photoperiod → multiply by 0.0036
-    - Ratio > 0.5: mmol is likely a daily integral in mmol/d/m² → divide by 1000
-    - Ratio < 0.02 or no lux data: use × 0.0036 as default, log a warning
+    OPB mmol values are daily integrals (mmol/m²/d) — a plain mmol→mol unit
+    conversion (MMOL_TO_DLI_FACTOR) yields mol/m²/d (DLI). No ratio-based
+    auto-detection needed; the PPFD x photoperiod interpretation was incorrect.
     """
     max_mmol = plant_data.get(OPB_MAX_LIGHT_MMOL)
     min_mmol = plant_data.get(OPB_MIN_LIGHT_MMOL)
-    max_lux = plant_data.get(OPB_MAX_LIGHT_LUX)
-
-    # Determine conversion method via ratio check
-    factor = MMOL_TO_DLI_FACTOR  # default: × 0.0036
-    if max_mmol is not None and max_lux and float(max_lux) > 0:
-        ratio = float(max_mmol) / float(max_lux)
-        if ratio > MMOL_LUX_RATIO_MAX:
-            # mmol values are likely daily integrals in mmol/d/m²
-            factor = 0.001  # / 1000
-            _LOGGER.info(
-                "mmol/lux ratio %.4f for %s is above %.2f — interpreting "
-                "mmol values as daily integrals (DLI = mmol / 1000). "
-                "max_mmol=%s, max_lux=%s",
-                ratio,
-                plant_data.get(OPB_DISPLAY_PID, "unknown"),
-                MMOL_LUX_RATIO_MAX,
-                max_mmol,
-                max_lux,
-            )
-        elif ratio < MMOL_LUX_RATIO_MIN:
-            _LOGGER.warning(
-                "Unusual mmol/lux ratio %.4f for %s (below %.2f). "
-                "DLI thresholds may be inaccurate. max_mmol=%s, max_lux=%s",
-                ratio,
-                plant_data.get(OPB_DISPLAY_PID, "unknown"),
-                MMOL_LUX_RATIO_MIN,
-                max_mmol,
-                max_lux,
-            )
 
     if max_mmol is not None:
-        plant_data[OPB_MAX_DLI] = round(float(max_mmol) * factor, 1)
+        plant_data[OPB_MAX_DLI] = round(float(max_mmol) * MMOL_TO_DLI_FACTOR, 1)
     if min_mmol is not None:
-        plant_data[OPB_MIN_DLI] = round(float(min_mmol) * factor, 1)
+        plant_data[OPB_MIN_DLI] = round(float(min_mmol) * MMOL_TO_DLI_FACTOR, 1)
 
 
 def _parse_includes(include: str | None) -> set[str]:
