@@ -1,7 +1,13 @@
 name: CI
 
 on:
+  # Only run push on main/master; feature branches are covered by pull_request,
+  # so a push to a branch with an open PR doesn't run the matrix twice. Push on
+  # main is also what the Auto Release workflow keys on, so it must stay.
   push:
+    branches:
+      - master
+      - main
   pull_request:
     branches:
       - master
