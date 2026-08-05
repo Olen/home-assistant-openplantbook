@@ -1,7 +1,9 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Device is already configured"
+            "already_configured": "Device is already configured",
+            "reauth_successful": "Re-authentication was successful",
+            "reconfigure_successful": "Re-configuration was successful"
         },
         "error": {
             "cannot_connect": "Failed to connect",
@@ -9,6 +11,22 @@
             "unknown": "Unexpected error"
         },
         "step": {
+            "reauth_confirm": {
+                "data": {
+                    "client_id": "Client ID",
+                    "client_secret": "Secret"
+                },
+                "description": "The OpenPlantbook credentials are no longer valid. Log in to [OpenPlantbook]({apikey_url}) and enter your API client id and secret.",
+                "title": "Reauthenticate OpenPlantbook"
+            },
+            "reconfigure": {
+                "data": {
+                    "client_id": "Client ID",
+                    "client_secret": "Secret"
+                },
+                "description": "Log in to [OpenPlantbook]({apikey_url}) and enter your API client id and secret.",
+                "title": "Reconfigure OpenPlantbook"
+            },
             "upload": {
                 "data": {
                     "upload_data": "Anonymously upload plant-sensors' data to OpenPlantbook",

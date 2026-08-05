@@ -17,6 +17,22 @@
         },
         "description": "Upload Plant-sensors data to OpenPlantbook. Please consider enabling it to contribute to a creation of a Worldwide Browsable dataset. [More info]({sensor_data_url})",
         "title": "Plant-sensors data uploading"
+      },
+      "reauth_confirm": {
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Secret"
+        },
+        "description": "The OpenPlantbook credentials are no longer valid. Log in to [OpenPlantbook]({apikey_url}) and enter your API client id and secret.",
+        "title": "Reauthenticate OpenPlantbook"
+      },
+      "reconfigure": {
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Secret"
+        },
+        "description": "Log in to [OpenPlantbook]({apikey_url}) and enter your API client id and secret.",
+        "title": "Reconfigure OpenPlantbook"
       }
     },
     "error": {
@@ -25,7 +41,9 @@
       "unknown": "[%key:common::config_flow::error::unknown%]"
     },
     "abort": {
-      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]",
+      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]"
     }
   },
   "options": {

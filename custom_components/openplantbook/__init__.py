@@ -252,6 +252,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     species,
                 )
                 del hass.data[DOMAIN][ATTR_SPECIES][species]
+                entry.async_start_reauth(hass)
                 raise InvalidAuth("Authentication failed") from err
             except MissingClientIdOrSecret:
                 plant_data = None
@@ -384,6 +385,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "Authentication failed while searching for %s. Please reconfigure the integration",
                 alias,
             )
+            entry.async_start_reauth(hass)
             raise InvalidAuth("Authentication failed") from err
         except MissingClientIdOrSecret:
             _LOGGER.exception(

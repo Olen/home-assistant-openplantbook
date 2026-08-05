@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -89,18 +90,26 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Create the options flow."""
         return OptionsFlowHandler()
 
+    async def _async_validate_credentials(
+        self, user_input: dict[str, Any]
+    ) -> dict[str, str]:
+        """Validate API credentials, returning a (possibly empty) errors dict."""
+        errors: dict[str, str] = {}
+        try:
+            await validate_input(self.hass, user_input)
+        except ValueError:
+            errors[CONF_CLIENT_ID] = "invalid_auth"
+        except Exception:
+            errors["base"] = "cannot_connect"
+        return errors
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            try:
-                await validate_input(self.hass, user_input)
-            except ValueError:
-                errors[CONF_CLIENT_ID] = "invalid_auth"
-            except Exception:
-                errors["base"] = "cannot_connect"
+            errors = await self._async_validate_credentials(user_input)
 
             if not errors:
                 # Persist the client_id as the entry's unique_id (stable per
@@ -142,6 +151,58 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "sensor_data_url": "https://open.plantbook.io/ui/sensor-data/",
                 "common_names_url": "https://github.com/slaxor505/OpenPlantbook-client/wiki/Plant-Common-names",
+            },
+        )
+
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]
+    ) -> ConfigFlowResult:
+        """Handle re-authentication when the stored credentials stop working."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Prompt for new credentials and update the existing entry."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = await self._async_validate_credentials(user_input)
+            if not errors:
+                return self.async_update_reload_and_abort(
+                    self._get_reauth_entry(),
+                    unique_id=user_input[CONF_CLIENT_ID],
+                    data_updates=user_input,
+                )
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=DATA_SCHEMA,
+            errors=errors,
+            description_placeholders={
+                "apikey_url": "https://open.plantbook.io/apikey/show/"
+            },
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Let the user change the API credentials of an existing entry."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = await self._async_validate_credentials(user_input)
+            if not errors:
+                return self.async_update_reload_and_abort(
+                    self._get_reconfigure_entry(),
+                    unique_id=user_input[CONF_CLIENT_ID],
+                    data_updates=user_input,
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=DATA_SCHEMA,
+            errors=errors,
+            description_placeholders={
+                "apikey_url": "https://open.plantbook.io/apikey/show/"
             },
         )
 
