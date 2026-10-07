@@ -37,6 +37,7 @@ from .const import (
 )
 from .plantbook_exception import OpenPlantbookException
 
+PLANT_DOMAIN = "plant"
 UPLOAD_TIME_INTERVAL = timedelta(days=1)
 UPLOAD_WAIT_AFTER_RESTART = timedelta(hours=4)
 
@@ -130,6 +131,19 @@ def get_supported_state_value(state) -> tuple:
     return supported_state, state_error
 
 
+def _plant_devices(hass: HomeAssistant) -> list[device_registry.DeviceEntry]:
+    """Return the plant integration's devices that the user has not renamed."""
+    device_reg = device_registry.async_get(hass)
+    return [
+        device
+        for entry in hass.config_entries.async_entries(PLANT_DOMAIN)
+        for device in device_registry.async_entries_for_config_entry(
+            device_reg, entry.entry_id
+        )
+        if device.name_by_user is None
+    ]
+
+
 async def plant_data_upload(
     hass: HomeAssistant, entry: ConfigEntry, call=None
 ) -> dict[str, Any] | None:
@@ -151,16 +165,7 @@ async def plant_data_upload(
         location["lon"] = hass.config.longitude
         location["lat"] = hass.config.latitude
 
-    # Get entity ids for plant devices.
-    device_reg = device_registry.async_get(hass)
-    # device_reg_i = device_registry.DeviceRegistryItems()
-    # devices = device_registry.async_get_device(hass)
-
-    plant_devices = []
-    # Looking for Plant-component's devices
-    for d in device_reg.devices.data.values():
-        if "plant" in str(d.identifiers) and d.name_by_user is None:
-            plant_devices.append(d)
+    plant_devices = _plant_devices(hass)
 
     entity_reg = entity_registry.async_get(hass)
     jts_doc = JtsDocument()
@@ -177,7 +182,7 @@ async def plant_data_upload(
         plant_device_state = None
         plant_entity_id = None
         for plant_entry in plant_sensors_entries:
-            if plant_entry.domain == "plant":
+            if plant_entry.domain == PLANT_DOMAIN:
                 plant_entity_id = plant_entry.entity_id
 
                 # Get OPB component's config state

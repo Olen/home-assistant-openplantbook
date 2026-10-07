@@ -11,8 +11,15 @@ from homeassistant.const import (
     UnitOfConductivity,
     UnitOfTemperature,
 )
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.openplantbook.uploader import get_supported_state_value
+from custom_components.openplantbook.uploader import (
+    PLANT_DOMAIN,
+    _plant_devices,
+    get_supported_state_value,
+)
 
 
 class TestGetSupportedStateValue:
@@ -399,3 +406,38 @@ class TestGetSupportedStateValue:
         value, error = get_supported_state_value(state)
         assert value == 26
         assert error is None
+
+
+async def test_plant_devices_selects_plant_integration_devices(
+    hass: HomeAssistant,
+) -> None:
+    """Only the plant integration's own, non-renamed devices are uploaded."""
+    device_reg = dr.async_get(hass)
+
+    plant_entry = MockConfigEntry(domain=PLANT_DOMAIN)
+    plant_entry.add_to_hass(hass)
+    plant = device_reg.async_get_or_create(
+        config_entry_id=plant_entry.entry_id,
+        identifiers={(PLANT_DOMAIN, plant_entry.entry_id)},
+        name="Monstera",
+    )
+
+    renamed_entry = MockConfigEntry(domain=PLANT_DOMAIN)
+    renamed_entry.add_to_hass(hass)
+    renamed = device_reg.async_get_or_create(
+        config_entry_id=renamed_entry.entry_id,
+        identifiers={(PLANT_DOMAIN, renamed_entry.entry_id)},
+        name="Basil",
+    )
+    device_reg.async_update_device(renamed.id, name_by_user="Kitchen basil")
+
+    # Another integration's device whose identifiers merely contain "plant"
+    other_entry = MockConfigEntry(domain="esphome")
+    other_entry.add_to_hass(hass)
+    device_reg.async_get_or_create(
+        config_entry_id=other_entry.entry_id,
+        identifiers={("esphome", "plant-monitor")},
+        name="Plant monitor",
+    )
+
+    assert [d.id for d in _plant_devices(hass)] == [plant.id]
