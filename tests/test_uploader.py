@@ -411,7 +411,7 @@ class TestGetSupportedStateValue:
 async def test_plant_devices_selects_plant_integration_devices(
     hass: HomeAssistant,
 ) -> None:
-    """Only the plant integration's own, non-renamed devices are uploaded."""
+    """Only the plant integration's own devices are uploaded, renamed or not."""
     device_reg = dr.async_get(hass)
 
     plant_entry = MockConfigEntry(domain=PLANT_DOMAIN)
@@ -440,4 +440,4 @@ async def test_plant_devices_selects_plant_integration_devices(
         name="Plant monitor",
     )
 
-    assert [d.id for d in _plant_devices(hass)] == [plant.id]
+    assert {d.id for d in _plant_devices(hass)} == {plant.id, renamed.id}
