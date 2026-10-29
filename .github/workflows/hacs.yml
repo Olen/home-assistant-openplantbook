@@ -12,6 +12,9 @@ on:
   schedule:
     - cron: "0 0 16 * *"
 
+permissions:
+  contents: read
+
 jobs:
   hacs:
     name: HACS Validation
