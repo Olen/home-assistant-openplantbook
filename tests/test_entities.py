@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook.const import (
     ATTR_HOURS,
@@ -18,6 +17,8 @@ from custom_components.openplantbook.const import (
     OPB_SERVICE_CLEAN_CACHE,
     OPB_SERVICE_GET,
 )
+
+from .ha_common import MockConfigEntry
 
 
 async def test_search_result_entity_has_unique_id(

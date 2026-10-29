@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from homeassistant.core import HomeAssistant
 from openplantbook_sdk import MissingClientIdOrSecret
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook.const import (
     ATTR_API,
@@ -23,6 +22,8 @@ from custom_components.openplantbook.const import (
     OPB_SERVICE_UPLOAD,
 )
 from custom_components.openplantbook.plantbook_exception import OpenPlantbookException
+
+from .ha_common import MockConfigEntry
 
 
 def _make_detail_side_effect():

@@ -43,17 +43,29 @@ jobs:
   test:
     name: Tests (HA ${{ matrix.ha-version }})
     runs-on: ubuntu-latest
+    # Non-blocking for the experimental "beta" matrix entry; required otherwise.
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Latest HA version - uses current pytest-homeassistant-custom-component
+          # Latest HA version - uses current pytest-homeassistant-custom-component.
+          # HA 2026.3+ requires Python 3.14; on 3.13 this resolves to HA 2026.2.
           - ha-version: "latest"
             pytest-ha-version: ""
+            python-version: "3.14"
           # Minimum HA version from hacs.json (2025.8.0)
           # pytest-homeassistant-custom-component 0.13.270 supports HA 2025.8.x
           - ha-version: "2025.8"
             pytest-ha-version: "==0.13.270"
+            python-version: "3.13"
+          # Latest HA prerelease/beta (NON-BLOCKING, see continue-on-error), so
+          # breakage in an upcoming HA release surfaces here before users see it.
+          # Tested with the official pytest-home-assistant, which replaced
+          # pytest-homeassistant-custom-component in HA 2026.11.
+          - ha-version: "beta"
+            python-version: "3.14"
+            experimental: true
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -61,7 +73,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -69,11 +81,26 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install --system --no-cache pytest pytest-cov
-          uv pip install --system --no-cache "pytest-homeassistant-custom-component${{ matrix.pytest-ha-version }}"
-          # Pin aiodns/pycares to known working versions to avoid compatibility issues
-          uv pip install --system --no-cache "aiodns==3.5.0" "pycares==4.11.0"
           # Install integration dependencies
           uv pip install --system --no-cache json-timeseries openplantbook-sdk
+
+      - name: Install pytest-homeassistant-custom-component
+        if: matrix.ha-version != 'beta'
+        run: uv pip install --system --no-cache "pytest-homeassistant-custom-component${{ matrix.pytest-ha-version }}"
+
+      - name: Pin aiodns/pycares (HA 2025.8 only)
+        if: matrix.ha-version == '2025.8'
+        # Known working versions for HA 2025.8; newer HA requires newer ones
+        run: uv pip install --system --no-cache "aiodns==3.5.0" "pycares==4.11.0"
+
+      - name: Install the newest HA prerelease and pytest-home-assistant (beta job only)
+        if: matrix.ha-version == 'beta'
+        # pytest-home-assistant must match the installed HA. It is not on PyPI
+        # yet, so it comes from the core tag of that HA version.
+        run: |
+          uv pip install --system --no-cache --prerelease=allow --upgrade homeassistant
+          HA_VERSION=$(python -c "from homeassistant.const import __version__; print(__version__)")
+          uv pip install --system --no-cache "pytest-home-assistant @ git+https://github.com/home-assistant/core@${HA_VERSION}#subdirectory=packages/pytest-home-assistant"
 
       - name: Show installed versions
         run: |

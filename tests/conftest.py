@@ -8,18 +8,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook.const import DOMAIN
 
-# This fixture ensures our custom component is loaded
-pytest_plugins = "pytest_homeassistant_custom_component"
+from .ha_common import OFFICIAL_TEST_PACKAGE, MockConfigEntry
 
+if not OFFICIAL_TEST_PACKAGE:
+    # The official package's plugin loads itself and enables custom integrations
+    pytest_plugins = "pytest_homeassistant_custom_component"
 
-@pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
-    """Enable custom integrations for all tests."""
-    yield
+    @pytest.fixture(autouse=True)
+    def auto_enable_custom_integrations(enable_custom_integrations):
+        """Enable custom integrations for all tests."""
+        yield
 
 
 @pytest.fixture(autouse=True)

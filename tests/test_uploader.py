@@ -13,13 +13,14 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook.uploader import (
     PLANT_DOMAIN,
     _plant_devices,
     get_supported_state_value,
 )
+
+from .ha_common import MockConfigEntry
 
 
 class TestGetSupportedStateValue:

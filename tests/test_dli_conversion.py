@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook import _clamp_dli, _enrich_plant_data_with_dli
 from custom_components.openplantbook.const import (
@@ -19,6 +18,8 @@ from custom_components.openplantbook.const import (
     OPB_MIN_LIGHT_MMOL,
     OPB_SERVICE_GET,
 )
+
+from .ha_common import MockConfigEntry
 
 
 class TestEnrichPlantDataWithDli:
