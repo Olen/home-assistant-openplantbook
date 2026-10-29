@@ -1,6 +1,9 @@
 {
   "domain": "openplantbook",
   "name": "OpenPlantbook",
+  "categories": [
+    "garden_plants"
+  ],
   "codeowners": [
     "@Olen"
   ],
