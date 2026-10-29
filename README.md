@@ -33,6 +33,9 @@ Connects Home Assistant to the [OpenPlantbook API](https://open.plantbook.io/) f
 2. Click **Download** in the "OpenPlantbook" repository
 3. Restart Home Assistant
 
+> [!NOTE]
+> The default catalog lists a fork of this repository, `slaxor505/home-assistant-openplantbook`. Both use the domain `openplantbook`, so the Marketplace installs only one of them. To switch, remove the fork in the Marketplace (or HACS), install this repository, and restart. Your OpenPlantbook configuration is kept.
+
 ### Manual Installation
 
 1. Copy `custom_components/openplantbook/` to your `<config>/custom_components/` directory
