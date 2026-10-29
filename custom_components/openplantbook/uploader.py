@@ -132,7 +132,7 @@ def get_supported_state_value(state) -> tuple:
 
 
 def _plant_devices(hass: HomeAssistant) -> list[device_registry.DeviceEntry]:
-    """Return the plant integration's devices that the user has not renamed."""
+    """Return the plant integration's devices."""
     device_reg = device_registry.async_get(hass)
     return [
         device
@@ -140,7 +140,6 @@ def _plant_devices(hass: HomeAssistant) -> list[device_registry.DeviceEntry]:
         for device in device_registry.async_entries_for_config_entry(
             device_reg, entry.entry_id
         )
-        if device.name_by_user is None
     ]
 
 
