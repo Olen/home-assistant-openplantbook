@@ -9,7 +9,6 @@ from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from openplantbook_sdk import MissingClientIdOrSecret
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openplantbook.const import (
     DEFAULT_IMAGE_PATH,
@@ -20,6 +19,8 @@ from custom_components.openplantbook.const import (
     FLOW_UPLOAD_HASS_LOCATION_COORD,
     FLOW_UPLOAD_HASS_LOCATION_COUNTRY,
 )
+
+from .ha_common import MockConfigEntry
 
 
 class TestConfigFlow:
