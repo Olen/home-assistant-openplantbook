@@ -12,6 +12,9 @@ on:
   schedule:
     - cron: "0 0 16 * *"
 
+permissions:
+  contents: read
+
 jobs:
   hacs:
     name: HACS Validation
@@ -24,4 +27,3 @@ jobs:
         uses: hacs/action@22.5.0
         with:
           category: integration
-          ignore: brands
