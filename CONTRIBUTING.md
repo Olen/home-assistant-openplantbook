@@ -31,7 +31,9 @@ Add a label so your change lands in the right section of the changelog:
 | `enhancement` or `feature` | 🚀 Features & Enhancements |
 | `bug` or `fix` | 🐛 Bug Fixes |
 | `documentation` | 📚 Documentation |
-| `dependencies`, `github_actions`, `ci`, `chore` | 🧹 Maintenance & CI |
+| `chore` | 🧹 Maintenance |
+| `ci`, `github_actions`, `dependencies` | _(excluded — build plumbing)_ |
+| `release` | _(excluded — see Releases below)_ |
 | _(no label)_ | Other Changes |
 
 Pick the single label that best describes the PR's primary intent. Unlabeled PRs
@@ -47,8 +49,14 @@ gh pr edit <number> --add-label enhancement   # or bug / documentation / depende
 
 ## Releases (maintainers)
 
-Releases are automated. Bump the version in
-`custom_components/openplantbook/manifest.json` on `main`; on the next green CI run
-the **Auto Release** workflow tags `v<version>` and publishes a GitHub release
-(prerelease when the version contains `beta`), with notes categorized from the
-merged-PR labels. Version format: `YYYY.M.P` (stable) or `YYYY.M.P-betaN` (beta).
+**Never bump the version in a fix PR.** The bump gets its own PR so several
+changes can ship in one release.
+
+To cut a release, open a PR that changes only the version in
+`custom_components/openplantbook/manifest.json`, title it `chore: release <version>`,
+and label it `release` — that label keeps the bump itself out of the changelog.
+
+On the next green CI run after it merges, the **Auto Release** workflow tags
+`v<version>` and publishes a GitHub release (prerelease when the version contains
+`beta`), with notes categorized from the merged-PR labels.
+Version format: `X.Y.Z` (stable) or `X.Y.Z-betaN` (beta).
