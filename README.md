@@ -25,16 +25,18 @@ Connects Home Assistant to the [OpenPlantbook API](https://open.plantbook.io/) f
 
 ## 📦 Installation
 
-### Via the Marketplace *(recommended, HACS before Home Assistant 2026.11)*
+### Via the Marketplace *(recommended)*
 
-[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Olen&repository=home-assistant-openplantbook&category=integration)
+OpenPlantbook is in the default catalog of the Marketplace (HACS before Home Assistant 2026.11).
 
-1. Select the button above, or add [this repo](https://github.com/Olen/home-assistant-openplantbook) as a custom repository with type **Integration**
-2. Click **Download** in the "OpenPlantbook" repository
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=Olen&repository=home-assistant-openplantbook&category=integration)
+
+1. Select the button above, or open **Settings** → **Marketplace** (**HACS** before 2026.11) and search for "OpenPlantbook"
+2. Click **Install** (**Download** in HACS)
 3. Restart Home Assistant
 
 > [!NOTE]
-> The default catalog lists a fork of this repository, `slaxor505/home-assistant-openplantbook`. Both use the domain `openplantbook`, so the Marketplace installs only one of them. To switch, remove the fork in the Marketplace (or HACS), install this repository, and restart. Your OpenPlantbook configuration is kept.
+> Until November 2026 the catalog listed a fork of this repository, `slaxor505/home-assistant-openplantbook`. If you installed the fork, uninstall it in the Marketplace (or HACS), install this repository, and restart. Both use the domain `openplantbook`, so your OpenPlantbook configuration is kept.
 
 ### Manual Installation
 
