@@ -559,6 +559,52 @@ class TestImageDownload:
         assert downloaded_file.exists()
         assert downloaded_file.read_bytes() == b"fake image data"
 
+    async def test_get_plant_creates_missing_image_folder(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry_with_download: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+        tmp_path,
+    ) -> None:
+        """An image folder removed after setup is created again on download."""
+        download_dir = tmp_path / "www" / "images" / "plants"
+
+        mock_config_entry_with_download.add_to_hass(hass)
+        hass.config_entries.async_update_entry(
+            mock_config_entry_with_download,
+            options={
+                **mock_config_entry_with_download.options,
+                FLOW_DOWNLOAD_PATH: str(download_dir),
+            },
+        )
+
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.read = AsyncMock(return_value=b"fake image data")
+        mock_session = MagicMock()
+        mock_session.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "custom_components.openplantbook.async_get_clientsession",
+            return_value=mock_session,
+        ):
+            await hass.config_entries.async_setup(
+                mock_config_entry_with_download.entry_id
+            )
+            await hass.async_block_till_done()
+            hass.data[DOMAIN][ATTR_SPECIES].clear()
+
+            result = await hass.services.async_call(
+                DOMAIN,
+                OPB_SERVICE_GET,
+                {"species": "monstera deliciosa"},
+                blocking=True,
+                return_response=True,
+            )
+
+        assert (download_dir / "monstera.jpg").read_bytes() == b"fake image data"
+        assert result.get(ATTR_IMAGE, "").startswith("/local/")
+
     async def test_get_plant_image_filename_ignores_query_string(
         self,
         hass: HomeAssistant,

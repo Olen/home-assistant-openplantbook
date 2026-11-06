@@ -451,6 +451,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     def _write_file(path: str, data: bytes) -> None:
         """Write binary data to a file (runs in executor)."""
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         with Path(path).open("wb") as fil:
             fil.write(data)
 
