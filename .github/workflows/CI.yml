@@ -49,10 +49,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Latest HA version - uses current pytest-homeassistant-custom-component.
-          # HA 2026.3+ requires Python 3.14; on 3.13 this resolves to HA 2026.2.
+          # Latest stable HA, tested with the official pytest-homeassistant,
+          # which replaced pytest-homeassistant-custom-component in HA 2026.11.
           - ha-version: "latest"
-            pytest-ha-version: ""
+            test-package: official
+            # HA 2026.3+ requires Python 3.14
             python-version: "3.14"
           # Minimum HA version from hacs.json (2025.8.0)
           # pytest-homeassistant-custom-component 0.13.270 supports HA 2025.8.x
@@ -64,6 +65,8 @@ jobs:
           # Tested with the official pytest-homeassistant, which replaced
           # pytest-homeassistant-custom-component in HA 2026.11.
           - ha-version: "beta"
+            test-package: official
+            prerelease: true
             python-version: "3.14"
             experimental: true
     steps:
@@ -85,7 +88,7 @@ jobs:
           uv pip install --system --no-cache json-timeseries openplantbook-sdk
 
       - name: Install pytest-homeassistant-custom-component
-        if: matrix.ha-version != 'beta'
+        if: matrix.test-package != 'official'
         run: uv pip install --system --no-cache "pytest-homeassistant-custom-component${{ matrix.pytest-ha-version }}"
 
       - name: Pin aiodns/pycares (HA 2025.8 only)
@@ -93,12 +96,12 @@ jobs:
         # Known working versions for HA 2025.8; newer HA requires newer ones
         run: uv pip install --system --no-cache "aiodns==3.5.0" "pycares==4.11.0"
 
-      - name: Install the newest HA prerelease and pytest-homeassistant (beta job only)
-        if: matrix.ha-version == 'beta'
+      - name: Install the newest HA and the matching pytest-homeassistant
+        if: matrix.test-package == 'official'
         # pytest-homeassistant must match the installed HA; HA publishes it on
-        # PyPI with the same version number.
+        # PyPI with the same version number. Only the beta job takes prereleases.
         run: |
-          uv pip install --system --no-cache --prerelease=allow --upgrade homeassistant
+          uv pip install --system --no-cache ${{ matrix.prerelease && '--prerelease=allow' || '' }} --upgrade homeassistant
           HA_VERSION=$(python -c "from homeassistant.const import __version__; print(__version__)")
           uv pip install --system --no-cache "pytest-homeassistant==${HA_VERSION}"
 
