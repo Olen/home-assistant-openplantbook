@@ -61,8 +61,10 @@ class UploadHealth:
     in_outage: bool = False
     outage_started: bool = False
     outage_ended: bool = False
-    # Plants that could not be registered in this run but could in the one
-    # before, and plants that failed before and registered again in this run.
+    # Plants whose registration failed and has not succeeded since. A run that
+    # skips a plant (no species yet) neither confirms nor clears its failure.
+    pending_failed_plants: list[str] = field(default_factory=list)
+    # This run: plants that newly failed, and pending ones that registered.
     newly_failed_plants: list[str] = field(default_factory=list)
     recovered_plants: list[str] = field(default_factory=list)
 
@@ -154,25 +156,21 @@ def record_run(
     finished: datetime,
     cloud_latest: datetime | None = None,
     failed_plants: list[str] | None = None,
+    registered_plants: list[str] | None = None,
     error: str | None = None,
 ) -> None:
     """Keep the outcome of a run and tell the sensors and triggers."""
     health = get_upload_health(hass)
     health.previous_status = health.status
     health.previous_last_upload = health.last_upload
-    health.newly_failed_plants = [
-        plant for plant in failed_plants or [] if plant not in health.failed_plants
-    ]
-    # A failed run proves nothing about plants it did not get to register.
-    health.recovered_plants = (
-        []
-        if status in FAILING_STATUSES
-        else [
-            plant
-            for plant in health.failed_plants
-            if plant not in (failed_plants or [])
-        ]
-    )
+    failed = list(failed_plants or [])
+    registered = list(registered_plants or [])
+    pending = health.pending_failed_plants
+    health.newly_failed_plants = [plant for plant in failed if plant not in pending]
+    health.recovered_plants = [plant for plant in pending if plant in registered]
+    health.pending_failed_plants = [
+        plant for plant in pending if plant not in registered and plant not in failed
+    ] + failed
     uploaded_now = finished if status == STATUS_UPLOADED else None
     health.status = status
     health.last_upload = newest(health.last_upload, cloud_latest, uploaded_now)
@@ -211,6 +209,7 @@ def record_restored(
             health.status = status
         health.last_run = last_run
         health.failed_plants = list(failed_plants or [])
+        health.pending_failed_plants = list(failed_plants or [])
         health.error = error
         health.in_outage = (
             in_outage if in_outage is not None else status in FAILING_STATUSES

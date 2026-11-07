@@ -159,6 +159,7 @@ class _RunTally:
 
     plants_total: int = 0
     failed_plants: list[str] = field(default_factory=list)
+    registered_plants: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     cloud_latest: datetime | None = None
     sent: bool = False
@@ -179,6 +180,7 @@ async def plant_data_upload(
             finished=dt_util.utcnow(),
             cloud_latest=tally.cloud_latest,
             failed_plants=tally.failed_plants,
+            registered_plants=tally.registered_plants,
             error=_joined([*tally.errors, "OpenPlantbook API rate limit exceeded"]),
         )
         raise
@@ -189,6 +191,7 @@ async def plant_data_upload(
             finished=dt_util.utcnow(),
             cloud_latest=tally.cloud_latest,
             failed_plants=tally.failed_plants,
+            registered_plants=tally.registered_plants,
             error=_joined([*tally.errors, str(err)]),
         )
         raise
@@ -203,6 +206,7 @@ async def plant_data_upload(
         finished=dt_util.utcnow(),
         cloud_latest=tally.cloud_latest,
         failed_plants=tally.failed_plants,
+        registered_plants=tally.registered_plants,
         error=_joined(tally.errors),
     )
     return result
@@ -378,6 +382,7 @@ async def _plant_data_upload(
             tally.failed_plants.append(i.name)
             tally.errors.append("Unexpected response from OpenPlantbook")
             continue
+        tally.registered_plants.append(i.name)
 
         # Get the latest_data timestamp from OPB response
         latest_data = res[0].get("latest_data")

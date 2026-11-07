@@ -509,8 +509,13 @@ async def test_a_plant_that_registers_again_fires_recovered(
     )
     await hass.async_block_till_done()
 
-    await _run(hass, STATUS_UPLOADED, failed_plants=["Fern"])
-    await _run(hass, STATUS_UPLOADED)
+    await _run(
+        hass, STATUS_UPLOADED, failed_plants=["Fern"], registered_plants=["Basil"]
+    )
+    # Skipped (no species yet): neither failed nor registered, so not recovered.
+    await _run(hass, STATUS_UPLOADED, registered_plants=["Basil"])
+    assert events == []
+    await _run(hass, STATUS_UPLOADED, registered_plants=["Basil", "Fern"])
     assert [e.data for e in events] == [{"plants": "Fern"}]
 
 
@@ -531,4 +536,16 @@ async def test_a_restart_does_not_delay_a_due_overdue(
     freezer.tick(timedelta(days=1, minutes=1))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
+    assert len(events) == 1
+
+
+async def test_a_skipped_plant_failing_again_is_not_new(hass: HomeAssistant) -> None:
+    events = await _automation(hass, {"trigger": "openplantbook.upload_failed"}, "f")
+    await _run(
+        hass, STATUS_UPLOADED, failed_plants=["Fern"], registered_plants=["Basil"]
+    )
+    await _run(hass, STATUS_UPLOADED, registered_plants=["Basil"])
+    await _run(
+        hass, STATUS_UPLOADED, failed_plants=["Fern"], registered_plants=["Basil"]
+    )
     assert len(events) == 1
