@@ -10,7 +10,8 @@ blueprint:
     Variables for the actions: `problem` ("failed", "rate_limited",
     "plants_failed" or "overdue"; the current status when it is fixed),
     `error`, `failed_plants` (plants that could not be registered, comma
-    separated) and `last_upload` (when data last arrived, or "never").
+    separated), `recovered_plants` (plants that can be registered again,
+    when it is fixed) and `last_upload` (when data last arrived, or "never").
 
 
     Needs Home Assistant 2026.7 or later.
@@ -57,6 +58,7 @@ variables:
        else trigger.status }}
   error: "{{ trigger.error or '' }}"
   failed_plants: "{{ trigger.failed_plants | join(', ') }}"
+  recovered_plants: "{{ trigger.recovered_plants | join(', ') }}"
   last_upload: >-
     {{ as_local(trigger.last_upload).strftime('%Y-%m-%d %H:%M')
        if trigger.last_upload else 'never' }}

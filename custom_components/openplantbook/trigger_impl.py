@@ -51,6 +51,7 @@ def _payload(health: UploadHealth) -> dict[str, Any]:
         "last_upload": health.last_upload,
         "error": health.error,
         "failed_plants": list(health.failed_plants),
+        "recovered_plants": list(health.recovered_plants),
     }
 
 
@@ -58,8 +59,8 @@ class UploadFailedTrigger(Trigger):
     """An upload failed, or a plant could no longer be registered.
 
     A whole run failing fires once per outage, with every plant that failed.
-    Otherwise it fires when plants newly fail to register while the others
-    still upload, with only those plants.
+    Outside an outage it fires when plants newly fail to register while the
+    others still upload, with only those plants.
     """
 
     @classmethod
@@ -83,7 +84,7 @@ class UploadFailedTrigger(Trigger):
                 payload = _payload(health)
                 payload["reason"] = health.status
                 run_action(payload, f"upload {health.status}")
-            elif health.newly_failed_plants:
+            elif health.newly_failed_plants and not health.in_outage:
                 payload = _payload(health)
                 payload["reason"] = REASON_PLANTS_FAILED
                 payload["failed_plants"] = list(health.newly_failed_plants)
@@ -121,6 +122,9 @@ class UploadOverdueTrigger(Trigger):
         overdue = False
         not_before = attached
         timer: CALLBACK_TYPE | None = None
+        # A record replacing one that belonged to an entry (the entry removed
+        # or reconfigured for another account) is a fresh start.
+        watched = get_upload_health(self._hass)
 
         def _deadline(health: UploadHealth) -> datetime:
             # Never seen an upload: count from when we started watching.
@@ -129,11 +133,22 @@ class UploadOverdueTrigger(Trigger):
 
         @callback
         def _evaluate(_now: datetime | None = None) -> None:
-            nonlocal overdue, timer
+            nonlocal overdue, timer, watched, not_before
             timer = None
             health = get_upload_health(self._hass)
-            if health.upload_enabled is not True:
+            if health is not watched:
+                # The placeholder seen before the entry loaded is no history.
+                replaced = watched.entry_id is not None
+                watched = health
+                if replaced:
+                    overdue = False
+                    not_before = dt_util.utcnow() + self._duration
+            if health.upload_enabled is False:
                 overdue = False
+                return
+            if health.upload_enabled is None:
+                # Not running: nothing is due, but an overdue already reported
+                # stays reported across a reload.
                 return
             deadline = _deadline(health)
             if dt_util.utcnow() >= deadline:
@@ -182,7 +197,8 @@ class UploadOverdueTrigger(Trigger):
 
 
 class UploadRecoveredTrigger(Trigger):
-    """Data reached OpenPlantbook again after an outage or a gap longer than `for`."""
+    """Uploads work again: data got through after an outage or a gap longer
+    than `for`, or plants that could not be registered can be again."""
 
     @classmethod
     async def async_validate_config(
@@ -206,14 +222,17 @@ class UploadRecoveredTrigger(Trigger):
             if update != UPDATE_RUN:
                 return
             health = get_upload_health(self._hass)
-            if health.status != STATUS_UPLOADED:
+            if health.in_outage:
                 return
             # Never seen an upload before: count from when we started watching,
             # as the overdue trigger does.
             previous = health.previous_last_upload or attached
             # Inclusive, as the overdue trigger fires at exactly `for`.
             was_overdue = health.last_run - previous >= self._duration
-            if health.outage_ended or was_overdue:
+            data_back = health.status == STATUS_UPLOADED and (
+                health.outage_ended or was_overdue
+            )
+            if data_back or health.recovered_plants:
                 run_action(_payload(health), "upload recovered")
 
         return async_dispatcher_connect(self._hass, SIGNAL_UPLOAD_HEALTH, _on_update)

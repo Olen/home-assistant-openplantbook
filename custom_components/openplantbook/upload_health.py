@@ -61,8 +61,10 @@ class UploadHealth:
     in_outage: bool = False
     outage_started: bool = False
     outage_ended: bool = False
-    # Plants that could not be registered in this run but could in the one before.
+    # Plants that could not be registered in this run but could in the one
+    # before, and plants that failed before and registered again in this run.
     newly_failed_plants: list[str] = field(default_factory=list)
+    recovered_plants: list[str] = field(default_factory=list)
 
 
 def get_upload_health(hass: HomeAssistant) -> UploadHealth:
@@ -161,6 +163,16 @@ def record_run(
     health.newly_failed_plants = [
         plant for plant in failed_plants or [] if plant not in health.failed_plants
     ]
+    # A failed run proves nothing about plants it did not get to register.
+    health.recovered_plants = (
+        []
+        if status in FAILING_STATUSES
+        else [
+            plant
+            for plant in health.failed_plants
+            if plant not in (failed_plants or [])
+        ]
+    )
     uploaded_now = finished if status == STATUS_UPLOADED else None
     health.status = status
     health.last_upload = newest(health.last_upload, cloud_latest, uploaded_now)

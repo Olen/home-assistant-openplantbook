@@ -99,7 +99,7 @@
         },
         "upload_recovered": {
             "name": "Upload recovered",
-            "description": "Triggers when plant-sensor data reaches OpenPlantbook again after a failure or a long gap.",
+            "description": "Triggers when plant-sensor data reaches OpenPlantbook again after a failure or a long gap, or when plants can be registered again.",
             "fields": {
                 "for": {
                     "name": "For",

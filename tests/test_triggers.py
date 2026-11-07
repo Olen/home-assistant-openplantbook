@@ -23,6 +23,7 @@ from custom_components.openplantbook.upload_health import (
     STATUS_NOTHING_NEW,
     STATUS_RATE_LIMITED,
     STATUS_UPLOADED,
+    claim_upload_health,
     forget_upload_health,
     record_enabled,
     record_restored,
@@ -452,4 +453,82 @@ async def test_recovery_at_exactly_the_window(hass: HomeAssistant, freezer) -> N
     await _run(hass, STATUS_UPLOADED)
     freezer.tick(timedelta(days=3))
     await _run(hass, STATUS_UPLOADED)
+    assert len(events) == 1
+
+
+async def test_plants_failing_during_an_outage_do_not_fire_again(
+    hass: HomeAssistant,
+) -> None:
+    events = await _automation(hass, {"trigger": "openplantbook.upload_failed"}, "f")
+    await _run(hass, STATUS_FAILED, failed_plants=["Fern"])
+    await _run(hass, STATUS_FAILED, failed_plants=["Fern", "Basil"])
+    await _run(hass, STATUS_NOTHING_NEW, failed_plants=["Fern", "Basil", "Mint"])
+    assert len(events) == 1
+
+
+async def test_a_reload_does_not_report_overdue_twice(
+    hass: HomeAssistant, freezer
+) -> None:
+    record_enabled(hass, True)
+    await _run(hass, STATUS_UPLOADED)
+    events = await _automation(
+        hass,
+        {"trigger": "openplantbook.upload_overdue", "options": {"for": {"days": 3}}},
+        "overdue",
+    )
+    freezer.tick(timedelta(days=3, minutes=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert len(events) == 1
+
+    record_unloaded(hass)
+    record_enabled(hass, True)
+    await hass.async_block_till_done()
+    assert len(events) == 1
+
+
+async def test_a_plant_that_registers_again_fires_recovered(
+    hass: HomeAssistant,
+) -> None:
+    events = async_capture_events(hass, "plant_back")
+    assert await async_setup_component(hass, "trace", {})
+    assert await async_setup_component(
+        hass,
+        "automation",
+        {
+            "automation": {
+                "trigger": {"trigger": "openplantbook.upload_recovered"},
+                "action": {
+                    "event": "plant_back",
+                    "event_data": {
+                        "plants": "{{ trigger.recovered_plants | join(',') }}"
+                    },
+                },
+            }
+        },
+    )
+    await hass.async_block_till_done()
+
+    await _run(hass, STATUS_UPLOADED, failed_plants=["Fern"])
+    await _run(hass, STATUS_UPLOADED)
+    assert [e.data for e in events] == [{"plants": "Fern"}]
+
+
+async def test_a_restart_does_not_delay_a_due_overdue(
+    hass: HomeAssistant, freezer
+) -> None:
+    """Automations attach before the entry loads; that must not add a window."""
+    events = await _automation(
+        hass,
+        {"trigger": "openplantbook.upload_overdue", "options": {"for": {"days": 3}}},
+        "overdue",
+    )
+    claim_upload_health(hass, "entry", "account")
+    record_enabled(hass, True)
+    record_restored(hass, last_upload=dt_util.utcnow() - timedelta(days=2))
+    await hass.async_block_till_done()
+
+    freezer.tick(timedelta(days=1, minutes=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
     assert len(events) == 1

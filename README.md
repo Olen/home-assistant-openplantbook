@@ -86,9 +86,9 @@ On Home Assistant 2026.7 or later there are also triggers for automations:
 
 - `openplantbook.upload_failed`: an upload failed (once per outage, until data gets through again), or plants newly failed to register while the others still upload. `trigger.reason` says which: `failed`, `rate_limited` or `plants_failed`; for `plants_failed`, `trigger.failed_plants` lists only the new ones.
 - `openplantbook.upload_overdue`: no data has reached OpenPlantbook for a while (`for`, default 3 days). If it is already overdue when Home Assistant starts, it waits one more `for` before firing, rather than firing on every restart. Nothing is overdue while the daily upload is off or the integration is not running.
-- `openplantbook.upload_recovered`: data got through again after a failure or a gap longer than `for`.
+- `openplantbook.upload_recovered`: data got through again after a failure or a gap longer than `for`, or plants that could not be registered can be again (`trigger.recovered_plants`).
 
-Each trigger passes `trigger.status`, `trigger.last_upload`, `trigger.error` and `trigger.failed_plants` to your actions.
+Each trigger passes `trigger.status`, `trigger.last_upload`, `trigger.error`, `trigger.failed_plants` and `trigger.recovered_plants` to your actions.
 
 The **OpenPlantbook upload problem** blueprint uses all three - pick what should happen, such as a notification: [![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FOlen%2Fhome-assistant-openplantbook%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fopenplantbook%2Fupload_problem.yaml)
 
