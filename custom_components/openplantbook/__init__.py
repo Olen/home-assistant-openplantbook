@@ -12,7 +12,7 @@ from pathlib import Path
 import voluptuous as vol
 from homeassistant import exceptions
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
+from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, Platform
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -68,6 +68,8 @@ from .uploader import (
 
 CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 _LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = [Platform.SENSOR]
 
 
 def _enrich_plant_data_with_dli(plant_data: dict) -> None:
@@ -490,6 +492,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Setup upload schedule
     await async_setup_upload_schedule(hass, entry)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Setup optionFlow updates listener
     entry.async_on_unload(entry.add_update_listener(config_update_listener))
 
@@ -537,6 +540,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading %s", DOMAIN)
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
     _LOGGER.debug("Removing cache")
     await hass.services.async_call(
         domain=DOMAIN,

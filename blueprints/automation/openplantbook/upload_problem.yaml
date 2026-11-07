@@ -1,0 +1,66 @@
+blueprint:
+  name: OpenPlantbook upload problem
+  description: >-
+    Run actions when your plant-sensor data stops reaching OpenPlantbook - an
+    upload fails, or nothing has arrived for a while - and, if you want, when
+    it gets through again. Only useful with "upload plant-sensors data"
+    turned on in the OpenPlantbook options.
+
+
+    Variables for the actions: `problem` ("failed", "rate_limited" or
+    "overdue"; the current status when it is fixed), `error`,
+    `failed_plants` (plants that could not be registered, comma separated)
+    and `last_upload` (when data last arrived, or "never").
+
+
+    Needs Home Assistant 2026.7 or later.
+  domain: automation
+  source_url: https://github.com/Olen/home-assistant-openplantbook/blob/main/blueprints/automation/openplantbook/upload_problem.yaml
+  homeassistant:
+    min_version: 2026.7.0
+  input:
+    overdue_for:
+      name: Overdue after
+      description: How long without data reaching OpenPlantbook counts as a problem.
+      default:
+        days: 3
+      selector:
+        duration:
+          enable_day: true
+    problem_actions:
+      name: When there is a problem
+      selector:
+        action: {}
+    recovered_actions:
+      name: When uploads work again
+      default: []
+      selector:
+        action: {}
+
+mode: queued
+max_exceeded: silent
+
+triggers:
+  - trigger: openplantbook.upload_failed
+    id: failed
+  - trigger: openplantbook.upload_overdue
+    options: {for: !input overdue_for}
+    id: overdue
+  - trigger: openplantbook.upload_recovered
+    options: {for: !input overdue_for}
+    id: recovered
+
+variables:
+  problem: "{{ 'overdue' if trigger.id == 'overdue' else trigger.status }}"
+  error: "{{ trigger.error or '' }}"
+  failed_plants: "{{ trigger.failed_plants | join(', ') }}"
+  last_upload: >-
+    {{ as_local(trigger.last_upload).strftime('%Y-%m-%d %H:%M')
+       if trigger.last_upload else 'never' }}
+
+actions:
+  - choose:
+      - conditions: "{{ trigger.id in ['failed', 'overdue'] }}"
+        sequence: !input problem_actions
+      - conditions: "{{ trigger.id == 'recovered' }}"
+        sequence: !input recovered_actions
