@@ -133,6 +133,47 @@ class TestUploadRecordsFailures:
         assert health.error == "api down"
 
 
+class TestRunErrorsAreKept:
+    """What failed earlier in a run survives a later exception."""
+
+    async def test_rate_limit_keeps_earlier_registration_failures(
+        self, hass: HomeAssistant
+    ) -> None:
+        async def fail_one_then_rate_limit(hass, entry, call, tally):
+            tally.failed_plants.append("Fern")
+            tally.errors.append("invalid pid")
+            raise RateLimitError("slow down")
+
+        with (
+            patch(
+                "custom_components.openplantbook.uploader._plant_data_upload",
+                side_effect=fail_one_then_rate_limit,
+            ),
+            pytest.raises(RateLimitError),
+        ):
+            await plant_data_upload(hass, MagicMock())
+        health = get_upload_health(hass)
+        assert health.failed_plants == ["Fern"]
+        assert health.error == "invalid pid; OpenPlantbook API rate limit exceeded"
+
+    async def test_registration_errors_are_the_error_of_a_failed_run(
+        self, hass: HomeAssistant
+    ) -> None:
+        async def every_plant_fails(hass, entry, call, tally):
+            tally.plants_total = 2
+            tally.failed_plants.extend(["Fern", "Basil"])
+            tally.errors.extend(["token expired", "token expired"])
+
+        with patch(
+            "custom_components.openplantbook.uploader._plant_data_upload",
+            side_effect=every_plant_fails,
+        ):
+            await plant_data_upload(hass, MagicMock())
+        health = get_upload_health(hass)
+        assert health.status == STATUS_FAILED
+        assert health.error == "token expired"
+
+
 class TestUploadSensors:
     """The diagnostic sensors follow the recorded runs."""
 
@@ -183,7 +224,7 @@ class TestUploadSensors:
         await hass.config_entries.async_unload(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
-    async def test_last_upload_survives_a_restart(
+    async def test_status_and_last_upload_survive_a_restart(
         self,
         hass: HomeAssistant,
         mock_config_entry: MockConfigEntry,
@@ -193,7 +234,18 @@ class TestUploadSensors:
         mock_restore_cache_with_extra_data(
             hass,
             [
-                (State(STATUS_SENSOR, STATUS_UPLOADED), {}),
+                (
+                    State(
+                        STATUS_SENSOR,
+                        STATUS_FAILED,
+                        {
+                            "last_run": TUESDAY.isoformat(),
+                            "failed_plants": ["Fern"],
+                            "error": "token expired",
+                        },
+                    ),
+                    {},
+                ),
                 (
                     State(LAST_UPLOAD_SENSOR, MONDAY.isoformat()),
                     SensorExtraStoredData(MONDAY, None).as_dict(),
@@ -207,7 +259,11 @@ class TestUploadSensors:
         await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
-        assert hass.states.get(STATUS_SENSOR).state == STATUS_UPLOADED
+        status = hass.states.get(STATUS_SENSOR)
+        assert status.state == STATUS_FAILED
+        assert status.attributes["failed_plants"] == ["Fern"]
+        assert status.attributes["error"] == "token expired"
+        assert get_upload_health(hass).last_run == TUESDAY
         assert hass.states.get(LAST_UPLOAD_SENSOR).state == MONDAY.isoformat()
         assert get_upload_health(hass).last_upload == MONDAY
 

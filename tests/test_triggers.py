@@ -19,6 +19,7 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.openplantbook.trigger import async_get_triggers
 from custom_components.openplantbook.upload_health import (
+    STATUS_DISABLED,
     STATUS_FAILED,
     STATUS_NOTHING_NEW,
     STATUS_RATE_LIMITED,
@@ -30,28 +31,36 @@ from custom_components.openplantbook.upload_health import (
 from .ha_common import async_capture_events, async_fire_time_changed
 
 
-async def _automation(hass: HomeAssistant, trigger: dict, event: str) -> list:
-    events = async_capture_events(hass, event)
+def _automation_config(trigger: dict, event: str) -> dict:
+    return {
+        "trigger": trigger,
+        "action": {
+            "event": event,
+            "event_data": {
+                "status": "{{ trigger.status }}",
+                "error": "{{ trigger.error }}",
+            },
+        },
+    }
+
+
+async def _automations(hass: HomeAssistant, *pairs: tuple[dict, str]) -> list[list]:
+    """Set up one automation per (trigger, event); automation sets up only once."""
+    captured = [async_capture_events(hass, event) for _, event in pairs]
     # conftest strips integration dependencies, so automation's trace is not
     # set up by itself.
     assert await async_setup_component(hass, "trace", {})
     assert await async_setup_component(
         hass,
         "automation",
-        {
-            "automation": {
-                "trigger": trigger,
-                "action": {
-                    "event": event,
-                    "event_data": {
-                        "status": "{{ trigger.status }}",
-                        "error": "{{ trigger.error }}",
-                    },
-                },
-            }
-        },
+        {"automation": [_automation_config(t, e) for t, e in pairs]},
     )
     await hass.async_block_till_done()
+    return captured
+
+
+async def _automation(hass: HomeAssistant, trigger: dict, event: str) -> list:
+    (events,) = await _automations(hass, (trigger, event))
     return events
 
 
@@ -255,3 +264,78 @@ async def test_upload_problem_blueprint(
     await _run(hass, STATUS_UPLOADED)
     assert [e.data for e in recovered] == [{"problem": STATUS_UPLOADED}]
     await _turn_off_automations(hass)
+
+
+async def test_one_outage_fires_failed_once_and_recovered_once(
+    hass: HomeAssistant,
+) -> None:
+    """Runs with nothing new in the middle of an outage do not end it."""
+    failed, recovered = await _automations(
+        hass,
+        ({"trigger": "openplantbook.upload_failed"}, "f"),
+        ({"trigger": "openplantbook.upload_recovered"}, "r"),
+    )
+    await _run(hass, STATUS_FAILED)
+    await _run(hass, STATUS_NOTHING_NEW)
+    await _run(hass, STATUS_FAILED)
+    await _run(hass, STATUS_NOTHING_NEW)
+    assert len(failed) == 1
+    assert len(recovered) == 0
+
+    await _run(hass, STATUS_UPLOADED)
+    assert len(recovered) == 1
+
+
+async def test_restored_outage_does_not_fire_failed_again(
+    hass: HomeAssistant,
+) -> None:
+    failed, recovered = await _automations(
+        hass,
+        ({"trigger": "openplantbook.upload_failed"}, "f"),
+        ({"trigger": "openplantbook.upload_recovered"}, "r"),
+    )
+    record_restored(hass, status=STATUS_FAILED)
+    await _run(hass, STATUS_FAILED)
+    assert len(failed) == 0
+    await _run(hass, STATUS_UPLOADED)
+    assert len(recovered) == 1
+
+
+async def test_nothing_is_overdue_while_uploading_is_off(
+    hass: HomeAssistant, freezer
+) -> None:
+    await _run(hass, STATUS_UPLOADED)
+    events = await _automation(
+        hass,
+        {"trigger": "openplantbook.upload_overdue", "options": {"for": {"days": 3}}},
+        "overdue",
+    )
+    await _run(hass, STATUS_DISABLED)
+    freezer.tick(timedelta(days=10))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert len(events) == 0
+
+    # Turned back on: the window starts again from the first run.
+    await _run(hass, STATUS_NOTHING_NEW)
+    assert len(events) == 0
+    freezer.tick(timedelta(days=3, minutes=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert len(events) == 1
+
+
+async def test_first_upload_ever_recovers_a_long_wait(
+    hass: HomeAssistant, freezer
+) -> None:
+    events = await _automation(
+        hass,
+        {
+            "trigger": "openplantbook.upload_recovered",
+            "options": {"for": {"days": 3}},
+        },
+        "recovered",
+    )
+    freezer.tick(timedelta(days=4))
+    await _run(hass, STATUS_UPLOADED)
+    assert len(events) == 1

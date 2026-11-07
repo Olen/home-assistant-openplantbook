@@ -16,8 +16,8 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
 from .upload_health import (
-    FAILING_STATUSES,
     SIGNAL_UPLOAD_HEALTH,
+    STATUS_DISABLED,
     STATUS_UPLOADED,
     UPDATE_RESTORED,
     UPDATE_RUN,
@@ -54,7 +54,7 @@ def _payload(health: UploadHealth) -> dict[str, Any]:
 
 
 class UploadFailedTrigger(Trigger):
-    """An upload run failed, after one that did not."""
+    """An upload run failed, outside an outage that is already going on."""
 
     @classmethod
     async def async_validate_config(
@@ -73,11 +73,7 @@ class UploadFailedTrigger(Trigger):
             if update != UPDATE_RUN:
                 return
             health = get_upload_health(self._hass)
-            started_failing = (
-                health.status in FAILING_STATUSES
-                and health.previous_status not in FAILING_STATUSES
-            )
-            if started_failing:
+            if health.outage_started:
                 run_action(_payload(health), f"upload {health.status}")
 
         return async_dispatcher_connect(self._hass, SIGNAL_UPLOAD_HEALTH, _on_update)
@@ -88,6 +84,8 @@ class UploadOverdueTrigger(Trigger):
 
     Already overdue when the trigger is attached (a restart during an outage),
     it waits one more `for` before firing, rather than firing on every restart.
+    Nothing is overdue while uploading is turned off, and turning it back on
+    starts a fresh window.
     """
 
     @classmethod
@@ -120,6 +118,9 @@ class UploadOverdueTrigger(Trigger):
             nonlocal overdue, timer
             timer = None
             health = get_upload_health(self._hass)
+            if health.status == STATUS_DISABLED:
+                overdue = False
+                return
             deadline = _deadline(health)
             if dt_util.utcnow() >= deadline:
                 if not overdue:
@@ -139,8 +140,12 @@ class UploadOverdueTrigger(Trigger):
 
         @callback
         def _on_update(update: str) -> None:
+            nonlocal not_before
+            health = get_upload_health(self._hass)
             if update == UPDATE_RESTORED:
                 _hold_off_if_overdue()
+            elif health.previous_status == STATUS_DISABLED:
+                not_before = dt_util.utcnow() + self._duration
             if timer is not None:
                 timer()
             _evaluate()
@@ -159,7 +164,7 @@ class UploadOverdueTrigger(Trigger):
 
 
 class UploadRecoveredTrigger(Trigger):
-    """Data reached OpenPlantbook again after a failure or a gap longer than `for`."""
+    """Data reached OpenPlantbook again after an outage or a gap longer than `for`."""
 
     @classmethod
     async def async_validate_config(
@@ -176,6 +181,8 @@ class UploadRecoveredTrigger(Trigger):
     async def async_attach_runner(
         self, run_action: TriggerActionRunner, did_not_trigger: Any | None = None
     ) -> CALLBACK_TYPE:
+        attached = dt_util.utcnow()
+
         @callback
         def _on_update(update: str) -> None:
             if update != UPDATE_RUN:
@@ -183,14 +190,11 @@ class UploadRecoveredTrigger(Trigger):
             health = get_upload_health(self._hass)
             if health.status != STATUS_UPLOADED:
                 return
-            was_failing = health.previous_status in FAILING_STATUSES
-            previous = health.previous_last_upload
-            was_overdue = (
-                previous is not None
-                and health.last_run is not None
-                and health.last_run - previous > self._duration
-            )
-            if was_failing or was_overdue:
+            # Never seen an upload before: count from when we started watching,
+            # as the overdue trigger does.
+            previous = health.previous_last_upload or attached
+            was_overdue = health.last_run - previous > self._duration
+            if health.outage_ended or was_overdue:
                 run_action(_payload(health), "upload recovered")
 
         return async_dispatcher_connect(self._hass, SIGNAL_UPLOAD_HEALTH, _on_update)

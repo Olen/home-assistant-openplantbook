@@ -159,6 +159,7 @@ class _RunTally:
 
     plants_total: int = 0
     failed_plants: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     cloud_latest: datetime | None = None
     sent: bool = False
     accepted: bool = False
@@ -177,7 +178,8 @@ async def plant_data_upload(
             status=STATUS_RATE_LIMITED,
             finished=dt_util.utcnow(),
             cloud_latest=tally.cloud_latest,
-            error="OpenPlantbook API rate limit exceeded",
+            failed_plants=tally.failed_plants,
+            error=_joined([*tally.errors, "OpenPlantbook API rate limit exceeded"]),
         )
         raise
     except Exception as err:
@@ -187,7 +189,7 @@ async def plant_data_upload(
             finished=dt_util.utcnow(),
             cloud_latest=tally.cloud_latest,
             failed_plants=tally.failed_plants,
-            error=str(err),
+            error=_joined([*tally.errors, str(err)]),
         )
         raise
     record_run(
@@ -201,8 +203,14 @@ async def plant_data_upload(
         finished=dt_util.utcnow(),
         cloud_latest=tally.cloud_latest,
         failed_plants=tally.failed_plants,
+        error=_joined(tally.errors),
     )
     return result
+
+
+def _joined(errors: list[str]) -> str | None:
+    """The distinct errors of a run, in the order they happened."""
+    return "; ".join(dict.fromkeys(errors)) or None
 
 
 async def _plant_data_upload(
@@ -348,6 +356,7 @@ async def _plant_data_upload(
                 caught_exception,
             )
             tally.failed_plants.append(i.name)
+            tally.errors.append(str(caught_exception))
             continue
 
         if res is None:
@@ -356,6 +365,7 @@ async def _plant_data_upload(
                 reg_map,
             )
             tally.failed_plants.append(i.name)
+            tally.errors.append("OpenPlantbook returned no response")
             continue
 
         _LOGGER.debug("Registration is successful with response: %s", res)
@@ -366,6 +376,7 @@ async def _plant_data_upload(
         except (IndexError, KeyError, TypeError):
             _LOGGER.exception("Cannot parse API response: %s", res)
             tally.failed_plants.append(i.name)
+            tally.errors.append("Unexpected response from OpenPlantbook")
             continue
 
         # Get the latest_data timestamp from OPB response
