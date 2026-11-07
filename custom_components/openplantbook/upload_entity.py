@@ -34,7 +34,9 @@ class UploadEntity(RestoreEntity):
         self._entry = entry
         self._account: str = entry.data[CONF_CLIENT_ID]
         self._attr_translation_key = key
-        self._attr_unique_id = f"{entry.unique_id or entry.entry_id}_{key}"
+        # The entry id stays the same when the entry is reconfigured for
+        # another account, so these entities (and automations on them) do too.
+        self._attr_unique_id = f"{entry.entry_id}_{key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="OpenPlantbook",
@@ -69,6 +71,8 @@ class UploadEntity(RestoreEntity):
 
     @callback
     def _on_run(self, run: UploadRun) -> None:
+        if run.account != self._account:
+            return
         self.apply_run(run)
         self.async_write_ha_state()
 

@@ -12,6 +12,7 @@ from homeassistant.components.recorder.history import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    CONF_CLIENT_ID,
     LIGHT_LUX,
     PERCENTAGE,
     UnitOfConductivity,
@@ -158,6 +159,7 @@ def _plant_devices(hass: HomeAssistant) -> list[device_registry.DeviceEntry]:
 class _RunTally:
     """What one upload run did, for classifying its outcome."""
 
+    account: str
     plants_total: int = 0
     # Plant device id -> name
     failed_plants: dict[str, str] = field(default_factory=dict)
@@ -171,6 +173,7 @@ class _RunTally:
         """The run as the upload entities see it."""
         errors = [*self.errors, extra_error] if extra_error else self.errors
         return UploadRun(
+            account=self.account,
             status=status,
             finished=dt_util.utcnow(),
             cloud_latest=self.cloud_latest,
@@ -184,7 +187,7 @@ async def plant_data_upload(
     hass: HomeAssistant, entry: ConfigEntry, call=None
 ) -> dict[str, Any] | None:
     """Upload new plant-sensor data, and tell the upload entities how it went."""
-    tally = _RunTally()
+    tally = _RunTally(account=entry.data[CONF_CLIENT_ID])
     try:
         result = await _plant_data_upload(hass, entry, call, tally)
     except RateLimitError:

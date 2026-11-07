@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
+from homeassistant.helpers import entity_registry as er
 from openplantbook_sdk.sdk import RateLimitError
 
 from custom_components.openplantbook.const import FLOW_UPLOAD_DATA
@@ -219,6 +220,25 @@ class TestUploadProblem:
         )
         await hass.async_block_till_done()
         assert problem(hass).state == STATE_OFF
+
+
+class TestAccounts:
+    """The upload entities belong to the entry, and to its current account."""
+
+    async def test_a_run_for_another_account_is_ignored(
+        self, hass: HomeAssistant, uploading: MockConfigEntry
+    ) -> None:
+        await run(hass, STATUS_UPLOADED)
+        # An upload that was still running when the entry got another account.
+        await run(hass, STATUS_FAILED, account="previous-account")
+        assert hass.states.get(STATUS_SENSOR).state == STATUS_UPLOADED
+        assert problem(hass).state == STATE_OFF
+
+    async def test_entities_are_tied_to_the_entry_not_the_account(
+        self, hass: HomeAssistant, uploading: MockConfigEntry
+    ) -> None:
+        entry = er.async_get(hass).async_get(PROBLEM_SENSOR)
+        assert entry.unique_id == f"{uploading.entry_id}_upload_problem"
 
 
 class TestRestore:

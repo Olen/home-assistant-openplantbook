@@ -150,5 +150,6 @@ async def uploading(
 
 
 async def run(hass: HomeAssistant, status: str, **kwargs) -> None:
+    kwargs.setdefault("account", TEST_CLIENT_ID)
     announce_run(hass, UploadRun(status=status, finished=dt_util.utcnow(), **kwargs))
     await hass.async_block_till_done()

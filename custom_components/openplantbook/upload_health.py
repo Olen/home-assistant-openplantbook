@@ -40,6 +40,9 @@ OVERDUE_AFTER = timedelta(days=3)
 class UploadRun:
     """What one upload run did."""
 
+    # The client ID the run used. A run that finishes after the entry was
+    # reconfigured for another account belongs to that old account.
+    account: str
     status: str
     finished: datetime
     cloud_latest: datetime | None = None
