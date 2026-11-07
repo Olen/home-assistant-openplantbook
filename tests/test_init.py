@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -378,6 +379,48 @@ class TestGetPlantServiceErrors:
                 blocking=True,
                 return_response=True,
             )
+
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            side_effect=_make_detail_side_effect()
+        )
+        result = await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa"},
+            blocking=True,
+            return_response=True,
+        )
+        assert result["pid"] == "monstera deliciosa"
+
+    async def test_get_plant_works_again_after_a_cancelled_request(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """A request cancelled while waiting for the API must not leave it stuck."""
+        api_called = asyncio.Event()
+
+        async def never_answers(*args, **kwargs):
+            api_called.set()
+            await asyncio.Event().wait()
+
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            side_effect=never_answers
+        )
+        request = hass.async_create_task(
+            hass.services.async_call(
+                DOMAIN,
+                OPB_SERVICE_GET,
+                {"species": "monstera deliciosa"},
+                blocking=True,
+                return_response=True,
+            )
+        )
+        await api_called.wait()
+        request.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await request
 
         mock_openplantbook_api.async_plant_detail_get = AsyncMock(
             side_effect=_make_detail_side_effect()
