@@ -220,6 +220,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             extra_params = {}
             if requested_includes:
                 extra_params["include"] = ",".join(sorted(requested_includes))
+            # The cache this request started with; an unload replaces it.
+            species_cache = hass.data[DOMAIN][ATTR_SPECIES]
             fetched = False
             try:
                 # Optionally pass Home Assistant language to OpenPlantbook API
@@ -266,7 +268,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 # Any error or cancellation, expected or not: drop the in-flight
                 # placeholder, or every later request would wait on it and fail.
                 if not fetched:
-                    del hass.data[DOMAIN][ATTR_SPECIES][species]
+                    species_cache.pop(species, None)
 
             if plant_data:
                 _LOGGER.debug("Got data for %s", species)
