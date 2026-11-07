@@ -16,7 +16,11 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.restore_state import (
+    ExtraStoredData,
+    RestoredExtraData,
+    RestoreEntity,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
@@ -92,6 +96,7 @@ class UploadStatusSensor(_UploadSensor, RestoreEntity):
         if last is None or last.state not in UPLOAD_STATUSES:
             return
         last_run = last.attributes.get("last_run")
+        extra = await self.async_get_last_extra_data()
         record_restored(
             self.hass,
             status=last.state,
@@ -99,7 +104,13 @@ class UploadStatusSensor(_UploadSensor, RestoreEntity):
             last_run=dt_util.parse_datetime(last_run) if last_run else None,
             failed_plants=last.attributes.get("failed_plants"),
             error=last.attributes.get("error"),
+            in_outage=extra.as_dict().get("in_outage") if extra else None,
         )
+
+    @property
+    def extra_restore_state_data(self) -> ExtraStoredData:
+        """Save the outage flag, which the status alone does not show."""
+        return RestoredExtraData({"in_outage": get_upload_health(self.hass).in_outage})
 
     @callback
     def _update_from_health(self) -> None:

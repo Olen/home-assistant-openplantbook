@@ -17,8 +17,8 @@ from homeassistant.util import dt as dt_util
 
 from .upload_health import (
     SIGNAL_UPLOAD_HEALTH,
-    STATUS_DISABLED,
     STATUS_UPLOADED,
+    UPDATE_ENABLED,
     UPDATE_RESTORED,
     UPDATE_RUN,
     UploadHealth,
@@ -84,8 +84,8 @@ class UploadOverdueTrigger(Trigger):
 
     Already overdue when the trigger is attached (a restart during an outage),
     it waits one more `for` before firing, rather than firing on every restart.
-    Nothing is overdue while uploading is turned off, and turning it back on
-    starts a fresh window.
+    Nothing is overdue while the daily upload is turned off - a manual upload
+    does not change that - and turning it back on starts a fresh window.
     """
 
     @classmethod
@@ -118,7 +118,7 @@ class UploadOverdueTrigger(Trigger):
             nonlocal overdue, timer
             timer = None
             health = get_upload_health(self._hass)
-            if health.status == STATUS_DISABLED:
+            if health.upload_enabled is False:
                 overdue = False
                 return
             deadline = _deadline(health)
@@ -144,7 +144,7 @@ class UploadOverdueTrigger(Trigger):
             health = get_upload_health(self._hass)
             if update == UPDATE_RESTORED:
                 _hold_off_if_overdue()
-            elif health.previous_status == STATUS_DISABLED:
+            elif update == UPDATE_ENABLED and health.upload_enabled:
                 not_before = dt_util.utcnow() + self._duration
             if timer is not None:
                 timer()

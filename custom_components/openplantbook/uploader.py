@@ -38,11 +38,11 @@ from .const import (
 )
 from .plantbook_exception import OpenPlantbookException
 from .upload_health import (
-    STATUS_DISABLED,
     STATUS_FAILED,
     STATUS_RATE_LIMITED,
     classify_run,
     newest,
+    record_enabled,
     record_run,
 )
 
@@ -557,6 +557,7 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
     upload_sensors = entry.options.get(FLOW_UPLOAD_DATA)
 
     if upload_sensors:
+        record_enabled(hass, True)
 
         @callback
         def start_schedule(_event: Event | None = None) -> None:
@@ -600,7 +601,7 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
 
     else:
         _LOGGER.info("Plant-sensors data upload schedule is disabled")
-        record_run(hass, status=STATUS_DISABLED, finished=dt_util.utcnow())
+        record_enabled(hass, False)
 
         if hass.data[DOMAIN].get("remove_upload_listener"):
             hass.data[DOMAIN]["remove_upload_listener"]()

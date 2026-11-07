@@ -32,15 +32,20 @@ UPLOAD_STATUSES = [
 ]
 FAILING_STATUSES = {STATUS_FAILED, STATUS_RATE_LIMITED}
 
-# What a signal reports: a finished run, or values restored after a restart.
+# What a signal reports: a finished run, values restored after a restart, or
+# the scheduled upload being turned on or off.
 UPDATE_RUN = "run"
 UPDATE_RESTORED = "restored"
+UPDATE_ENABLED = "enabled"
 
 
 @dataclass
 class UploadHealth:
     """The latest upload outcome, and the one before it."""
 
+    entry_id: str | None = None
+    # Whether the daily upload is scheduled; a manual run does not change it.
+    upload_enabled: bool | None = None
     status: str | None = None
     last_upload: datetime | None = None
     last_run: datetime | None = None
@@ -58,6 +63,40 @@ class UploadHealth:
 def get_upload_health(hass: HomeAssistant) -> UploadHealth:
     """Return the shared upload record, creating it on first use."""
     return hass.data.setdefault(DATA_UPLOAD_HEALTH, UploadHealth())
+
+
+@callback
+def claim_upload_health(hass: HomeAssistant, entry_id: str) -> None:
+    """Start a fresh record when a different config entry takes over.
+
+    A reload of the same entry keeps its history; a new entry, possibly for
+    another account, must not inherit it.
+    """
+    health = get_upload_health(hass)
+    if health.entry_id == entry_id:
+        return
+    hass.data[DATA_UPLOAD_HEALTH] = UploadHealth(entry_id=entry_id)
+
+
+@callback
+def forget_upload_health(hass: HomeAssistant) -> None:
+    """Drop the record when the config entry is removed."""
+    hass.data.pop(DATA_UPLOAD_HEALTH, None)
+
+
+@callback
+def record_enabled(hass: HomeAssistant, enabled: bool) -> None:
+    """Note whether the daily upload is scheduled."""
+    health = get_upload_health(hass)
+    was_enabled = health.upload_enabled
+    health.upload_enabled = enabled
+    if not enabled:
+        health.status = STATUS_DISABLED
+    elif health.status == STATUS_DISABLED:
+        # Unknown until the first scheduled run.
+        health.status = None
+    if was_enabled != enabled:
+        async_dispatcher_send(hass, SIGNAL_UPLOAD_HEALTH, UPDATE_ENABLED)
 
 
 def classify_run(
@@ -119,18 +158,24 @@ def record_restored(
     last_run: datetime | None = None,
     failed_plants: list[str] | None = None,
     error: str | None = None,
+    in_outage: bool | None = None,
     last_upload: datetime | None = None,
 ) -> None:
     """Seed the record from values the sensors restored after a restart.
 
     A run that finished since the restart is newer, so it is never overwritten.
+    Without a saved outage flag (saved by older versions), a failing status
+    is taken to mean an outage.
     """
     health = get_upload_health(hass)
-    if status is not None and health.status is None:
-        health.status = status
+    if status is not None and health.last_run is None:
+        if health.upload_enabled is not False:
+            health.status = status
         health.last_run = last_run
         health.failed_plants = list(failed_plants or [])
         health.error = error
-        health.in_outage = status in FAILING_STATUSES
+        health.in_outage = (
+            in_outage if in_outage is not None else status in FAILING_STATUSES
+        )
     health.last_upload = newest(health.last_upload, last_upload)
     async_dispatcher_send(hass, SIGNAL_UPLOAD_HEALTH, UPDATE_RESTORED)

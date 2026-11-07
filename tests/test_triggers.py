@@ -19,11 +19,11 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.openplantbook.trigger import async_get_triggers
 from custom_components.openplantbook.upload_health import (
-    STATUS_DISABLED,
     STATUS_FAILED,
     STATUS_NOTHING_NEW,
     STATUS_RATE_LIMITED,
     STATUS_UPLOADED,
+    record_enabled,
     record_restored,
     record_run,
 )
@@ -310,19 +310,41 @@ async def test_nothing_is_overdue_while_uploading_is_off(
         {"trigger": "openplantbook.upload_overdue", "options": {"for": {"days": 3}}},
         "overdue",
     )
-    await _run(hass, STATUS_DISABLED)
+    record_enabled(hass, False)
     freezer.tick(timedelta(days=10))
+    async_fire_time_changed(hass)
+    # A manual upload while the daily one is off does not start the clock.
+    await _run(hass, STATUS_NOTHING_NEW)
+    freezer.tick(timedelta(days=4))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
     assert len(events) == 0
 
-    # Turned back on: the window starts again from the first run.
-    await _run(hass, STATUS_NOTHING_NEW)
+    # Turned back on: a fresh window starts.
+    record_enabled(hass, True)
+    await hass.async_block_till_done()
+    freezer.tick(timedelta(days=2))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
     assert len(events) == 0
-    freezer.tick(timedelta(days=3, minutes=1))
+    freezer.tick(timedelta(days=1, minutes=1))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
     assert len(events) == 1
+
+
+async def test_an_outage_survives_a_restart(hass: HomeAssistant) -> None:
+    """Restored mid-outage after a run with nothing new: still the same outage."""
+    failed, recovered = await _automations(
+        hass,
+        ({"trigger": "openplantbook.upload_failed"}, "f"),
+        ({"trigger": "openplantbook.upload_recovered"}, "r"),
+    )
+    record_restored(hass, status=STATUS_NOTHING_NEW, in_outage=True)
+    await _run(hass, STATUS_FAILED)
+    assert len(failed) == 0
+    await _run(hass, STATUS_UPLOADED)
+    assert len(recovered) == 1
 
 
 async def test_first_upload_ever_recovers_a_long_wait(

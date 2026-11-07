@@ -17,8 +17,10 @@ from custom_components.openplantbook.upload_health import (
     STATUS_NOTHING_NEW,
     STATUS_RATE_LIMITED,
     STATUS_UPLOADED,
+    claim_upload_health,
     classify_run,
     get_upload_health,
+    record_enabled,
     record_run,
 )
 from custom_components.openplantbook.uploader import plant_data_upload
@@ -101,6 +103,35 @@ class TestRecordRun:
         assert health.last_upload == MONDAY
         assert health.failed_plants == ["Fern"]
         assert health.error == "boom"
+
+
+class TestOwnership:
+    """The record belongs to one config entry."""
+
+    async def test_a_reload_of_the_same_entry_keeps_the_history(
+        self, hass: HomeAssistant
+    ) -> None:
+        claim_upload_health(hass, "entry-a")
+        record_run(hass, status=STATUS_UPLOADED, finished=MONDAY)
+        claim_upload_health(hass, "entry-a")
+        assert get_upload_health(hass).last_upload == MONDAY
+
+    async def test_a_new_entry_starts_fresh(self, hass: HomeAssistant) -> None:
+        claim_upload_health(hass, "entry-a")
+        record_run(hass, status=STATUS_FAILED, finished=MONDAY)
+        claim_upload_health(hass, "entry-b")
+        health = get_upload_health(hass)
+        assert health.last_run is None
+        assert health.in_outage is False
+
+    async def test_a_manual_run_keeps_the_schedule_disabled(
+        self, hass: HomeAssistant
+    ) -> None:
+        record_enabled(hass, False)
+        record_run(hass, status=STATUS_NOTHING_NEW, finished=MONDAY)
+        health = get_upload_health(hass)
+        assert health.upload_enabled is False
+        assert health.status == STATUS_NOTHING_NEW
 
 
 class TestUploadRecordsFailures:
@@ -244,7 +275,7 @@ class TestUploadSensors:
                             "error": "token expired",
                         },
                     ),
-                    {},
+                    {"in_outage": True},
                 ),
                 (
                     State(LAST_UPLOAD_SENSOR, MONDAY.isoformat()),
@@ -264,6 +295,7 @@ class TestUploadSensors:
         assert status.attributes["failed_plants"] == ["Fern"]
         assert status.attributes["error"] == "token expired"
         assert get_upload_health(hass).last_run == TUESDAY
+        assert get_upload_health(hass).in_outage is True
         assert hass.states.get(LAST_UPLOAD_SENSOR).state == MONDAY.isoformat()
         assert get_upload_health(hass).last_upload == MONDAY
 
