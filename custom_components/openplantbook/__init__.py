@@ -220,6 +220,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             extra_params = {}
             if requested_includes:
                 extra_params["include"] = ",".join(sorted(requested_includes))
+            fetched = False
             try:
                 # Optionally pass Home Assistant language to OpenPlantbook API
                 send_lang = entry.options.get(FLOW_SEND_LANG, True)
@@ -238,12 +239,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     plant_data = await hass.data[DOMAIN][
                         ATTR_API
                     ].async_plant_detail_get(species, params=extra_params)
+                fetched = True
             except RateLimitError as err:
                 plant_data = None
                 _LOGGER.warning(
                     "Rate limit reached while fetching data for %s", species
                 )
-                del hass.data[DOMAIN][ATTR_SPECIES][species]
                 raise exceptions.HomeAssistantError(
                     "OpenPlantbook API rate limit exceeded. Please try again later."
                 ) from err
@@ -253,7 +254,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     "Authentication failed while fetching data for %s. Please reconfigure the integration",
                     species,
                 )
-                del hass.data[DOMAIN][ATTR_SPECIES][species]
                 entry.async_start_reauth(hass)
                 raise InvalidAuth("Authentication failed") from err
             except MissingClientIdOrSecret:
@@ -261,8 +261,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.exception(
                     "Missing client ID or secret. Please set up the integration again"
                 )
-                del hass.data[DOMAIN][ATTR_SPECIES][species]
                 raise
+            finally:
+                # Any error or cancellation, expected or not: drop the in-flight
+                # placeholder, or every later request would wait on it and fail.
+                if not fetched:
+                    del hass.data[DOMAIN][ATTR_SPECIES][species]
 
             if plant_data:
                 _LOGGER.debug("Got data for %s", species)

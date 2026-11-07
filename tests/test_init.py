@@ -360,6 +360,37 @@ class TestGetPlantServiceErrors:
                 blocking=True,
             )
 
+    async def test_get_plant_works_again_after_an_unexpected_error(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        """An error the service does not expect must not leave the species stuck."""
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            side_effect=ConnectionError("network down")
+        )
+        with pytest.raises(ConnectionError):
+            await hass.services.async_call(
+                DOMAIN,
+                OPB_SERVICE_GET,
+                {"species": "monstera deliciosa"},
+                blocking=True,
+                return_response=True,
+            )
+
+        mock_openplantbook_api.async_plant_detail_get = AsyncMock(
+            side_effect=_make_detail_side_effect()
+        )
+        result = await hass.services.async_call(
+            DOMAIN,
+            OPB_SERVICE_GET,
+            {"species": "monstera deliciosa"},
+            blocking=True,
+            return_response=True,
+        )
+        assert result["pid"] == "monstera deliciosa"
+
     async def test_get_plant_returns_empty_when_not_found(
         self,
         hass: HomeAssistant,
