@@ -1,0 +1,215 @@
+"""Tests for recording upload outcomes and the two upload sensors."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
+
+import pytest
+from homeassistant.components.sensor import SensorExtraStoredData
+from homeassistant.core import HomeAssistant, State
+from openplantbook_sdk.sdk import RateLimitError
+
+from custom_components.openplantbook.const import FLOW_UPLOAD_DATA
+from custom_components.openplantbook.upload_health import (
+    STATUS_DISABLED,
+    STATUS_FAILED,
+    STATUS_NOTHING_NEW,
+    STATUS_RATE_LIMITED,
+    STATUS_UPLOADED,
+    classify_run,
+    get_upload_health,
+    record_run,
+)
+from custom_components.openplantbook.uploader import plant_data_upload
+
+from .ha_common import (
+    MockConfigEntry,
+    mock_restore_cache_with_extra_data,
+)
+
+STATUS_SENSOR = "sensor.openplantbook_upload_status"
+LAST_UPLOAD_SENSOR = "sensor.openplantbook_last_upload"
+
+MONDAY = datetime(2026, 11, 2, 6, 0, tzinfo=UTC)
+TUESDAY = datetime(2026, 11, 3, 6, 0, tzinfo=UTC)
+
+
+class TestClassifyRun:
+    """How a finished run is classified."""
+
+    def test_accepted_upload(self) -> None:
+        assert (
+            classify_run(plants_total=2, plants_failed=0, sent=True, accepted=True)
+            == STATUS_UPLOADED
+        )
+
+    def test_rejected_upload(self) -> None:
+        assert (
+            classify_run(plants_total=2, plants_failed=0, sent=True, accepted=False)
+            == STATUS_FAILED
+        )
+
+    def test_no_plant_could_be_registered(self) -> None:
+        assert (
+            classify_run(plants_total=3, plants_failed=3, sent=False, accepted=False)
+            == STATUS_FAILED
+        )
+
+    def test_some_plants_registered_but_nothing_new(self) -> None:
+        assert (
+            classify_run(plants_total=3, plants_failed=1, sent=False, accepted=False)
+            == STATUS_NOTHING_NEW
+        )
+
+    def test_no_plants_at_all(self) -> None:
+        assert (
+            classify_run(plants_total=0, plants_failed=0, sent=False, accepted=False)
+            == STATUS_NOTHING_NEW
+        )
+
+
+class TestRecordRun:
+    """What a recorded run keeps."""
+
+    async def test_last_upload_is_the_newest_known_time(
+        self, hass: HomeAssistant
+    ) -> None:
+        record_run(
+            hass, status=STATUS_NOTHING_NEW, finished=TUESDAY, cloud_latest=MONDAY
+        )
+        assert get_upload_health(hass).last_upload == MONDAY
+
+        record_run(hass, status=STATUS_UPLOADED, finished=TUESDAY)
+        health = get_upload_health(hass)
+        assert health.last_upload == TUESDAY
+        assert health.previous_last_upload == MONDAY
+        assert health.previous_status == STATUS_NOTHING_NEW
+
+    async def test_a_failed_run_keeps_the_last_upload(
+        self, hass: HomeAssistant
+    ) -> None:
+        record_run(hass, status=STATUS_UPLOADED, finished=MONDAY)
+        record_run(
+            hass,
+            status=STATUS_FAILED,
+            finished=TUESDAY,
+            failed_plants=["Fern"],
+            error="boom",
+        )
+        health = get_upload_health(hass)
+        assert health.last_upload == MONDAY
+        assert health.failed_plants == ["Fern"]
+        assert health.error == "boom"
+
+
+class TestUploadRecordsFailures:
+    """plant_data_upload records runs that end in an exception."""
+
+    async def test_rate_limit_is_recorded_and_raised(self, hass: HomeAssistant) -> None:
+        with (
+            patch(
+                "custom_components.openplantbook.uploader._plant_data_upload",
+                side_effect=RateLimitError("slow down"),
+            ),
+            pytest.raises(RateLimitError),
+        ):
+            await plant_data_upload(hass, MagicMock())
+        assert get_upload_health(hass).status == STATUS_RATE_LIMITED
+
+    async def test_unexpected_error_is_recorded_and_raised(
+        self, hass: HomeAssistant
+    ) -> None:
+        with (
+            patch(
+                "custom_components.openplantbook.uploader._plant_data_upload",
+                side_effect=RuntimeError("api down"),
+            ),
+            pytest.raises(RuntimeError),
+        ):
+            await plant_data_upload(hass, MagicMock())
+        health = get_upload_health(hass)
+        assert health.status == STATUS_FAILED
+        assert health.error == "api down"
+
+
+class TestUploadSensors:
+    """The diagnostic sensors follow the recorded runs."""
+
+    async def test_disabled_upload_shows_disabled(
+        self, hass: HomeAssistant, init_integration: MockConfigEntry
+    ) -> None:
+        assert hass.states.get(STATUS_SENSOR).state == STATUS_DISABLED
+        assert hass.states.get(LAST_UPLOAD_SENSOR).state == "unknown"
+
+    async def test_sensors_follow_a_run(
+        self, hass: HomeAssistant, init_integration: MockConfigEntry
+    ) -> None:
+        record_run(
+            hass,
+            status=STATUS_FAILED,
+            finished=TUESDAY,
+            cloud_latest=MONDAY,
+            failed_plants=["Fern"],
+            error="token expired",
+        )
+        await hass.async_block_till_done()
+
+        status = hass.states.get(STATUS_SENSOR)
+        assert status.state == STATUS_FAILED
+        assert status.attributes["failed_plants"] == ["Fern"]
+        assert status.attributes["error"] == "token expired"
+        assert hass.states.get(LAST_UPLOAD_SENSOR).state == MONDAY.isoformat()
+
+    async def test_upload_service_records_nothing_new(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        mock_config_entry.add_to_hass(hass)
+        hass.config_entries.async_update_entry(
+            mock_config_entry, options={FLOW_UPLOAD_DATA: True}
+        )
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        await hass.services.async_call(
+            "openplantbook", "upload", {}, blocking=True, return_response=True
+        )
+        await hass.async_block_till_done()
+        assert hass.states.get(STATUS_SENSOR).state == STATUS_NOTHING_NEW
+
+        await hass.config_entries.async_unload(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    async def test_last_upload_survives_a_restart(
+        self,
+        hass: HomeAssistant,
+        mock_config_entry: MockConfigEntry,
+        mock_openplantbook_api: MagicMock,
+    ) -> None:
+        # One call: each mock_restore_cache* replaces the whole cache.
+        mock_restore_cache_with_extra_data(
+            hass,
+            [
+                (State(STATUS_SENSOR, STATUS_UPLOADED), {}),
+                (
+                    State(LAST_UPLOAD_SENSOR, MONDAY.isoformat()),
+                    SensorExtraStoredData(MONDAY, None).as_dict(),
+                ),
+            ],
+        )
+        mock_config_entry.add_to_hass(hass)
+        hass.config_entries.async_update_entry(
+            mock_config_entry, options={FLOW_UPLOAD_DATA: True}
+        )
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert hass.states.get(STATUS_SENSOR).state == STATUS_UPLOADED
+        assert hass.states.get(LAST_UPLOAD_SENSOR).state == MONDAY.isoformat()
+        assert get_upload_health(hass).last_upload == MONDAY
+
+        await hass.config_entries.async_unload(mock_config_entry.entry_id)
+        await hass.async_block_till_done()

@@ -75,6 +75,23 @@ When enabled, the integration periodically (once a day) uploads sensor data from
 - Can also be triggered manually via the `openplantbook.upload` action
 - Daily uploads are scheduled at a randomized time-of-day per installation (stable for a given config entry) to even load distribution
 
+#### Upload health
+
+Two diagnostic sensors on the **OpenPlantbook** device show how uploads are going:
+
+- **Upload status**: how the latest run went - `uploaded`, `nothing_new`, `failed`, `rate_limited`, or `disabled` when uploading is off. Its attributes hold the time of the run, the plants that could not be registered, and the error.
+- **Last upload**: when data last reached OpenPlantbook, from a successful run or from OpenPlantbook's own record.
+
+On Home Assistant 2026.7 or later there are also triggers for automations:
+
+- `openplantbook.upload_failed`: an upload failed, after one that did not.
+- `openplantbook.upload_overdue`: no data has reached OpenPlantbook for a while (`for`, default 3 days). If it is already overdue when Home Assistant starts, it waits one more `for` before firing, rather than firing on every restart.
+- `openplantbook.upload_recovered`: data got through again after a failure or a gap longer than `for`.
+
+Each trigger passes `trigger.status`, `trigger.last_upload`, `trigger.error` and `trigger.failed_plants` to your actions.
+
+The **OpenPlantbook upload problem** blueprint uses all three - pick what should happen, such as a notification: [![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/create-link/?redirect=blueprint_import&blueprint_url=https%3A%2F%2Fgithub.com%2FOlen%2Fhome-assistant-openplantbook%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fopenplantbook%2Fupload_problem.yaml)
+
 ### 🌍 Share Location
 
 Optionally share your Home Assistant location to complement sensor data. Two levels:
