@@ -85,6 +85,8 @@ Three diagnostic entities on the **OpenPlantbook** device show how uploads are g
 
 On Home Assistant 2026.7 or later there are triggers for automations: `openplantbook.upload_problem_started` and `openplantbook.upload_problem_cleared`, which fire when **Upload problem** turns on and off. On older versions, use a state trigger on that sensor.
 
+The triggers fire when the sensor changes from off to on (or back). A problem that begins while Home Assistant is down, or that is already there when you turn uploading back on, shows on the sensor but does not fire them. To be told about it after a restart, add an automation with a `homeassistant.started` trigger and the condition that **Upload problem** is on.
+
 The **OpenPlantbook upload problem** blueprint uses both - pick what should happen, such as a notification: [![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FOlen%2Fhome-assistant-openplantbook%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fopenplantbook%2Fupload_problem.yaml)
 
 ### 🌍 Share Location
