@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
-from custom_components.openplantbook.const import DOMAIN
+from custom_components.openplantbook.const import DOMAIN, FLOW_UPLOAD_DATA
+from custom_components.openplantbook.upload_health import UploadRun, announce_run
 
 from .ha_common import OFFICIAL_TEST_PACKAGE, MockConfigEntry
 
@@ -127,3 +129,26 @@ async def init_integration(
     await hass.async_block_till_done()
 
     return mock_config_entry
+
+
+@pytest.fixture
+async def uploading(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_openplantbook_api: MagicMock,
+) -> AsyncGenerator[MockConfigEntry]:
+    """The integration set up with the daily upload turned on."""
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry, options={FLOW_UPLOAD_DATA: True}
+    )
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    yield mock_config_entry
+    await hass.config_entries.async_unload(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def run(hass: HomeAssistant, status: str, **kwargs) -> None:
+    announce_run(hass, UploadRun(status=status, finished=dt_util.utcnow(), **kwargs))
+    await hass.async_block_till_done()

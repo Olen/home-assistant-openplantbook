@@ -77,20 +77,15 @@ When enabled, the integration periodically (once a day) uploads sensor data from
 
 #### Upload health
 
-Two diagnostic sensors on the **OpenPlantbook** device show how uploads are going:
+Three diagnostic entities on the **OpenPlantbook** device show how uploads are going:
 
-- **Upload status**: how the latest run went - `uploaded`, `nothing_new`, `failed`, `rate_limited`, or `disabled` when uploading is off. Its attributes hold the time of the run, the plants that could not be registered, and the error.
+- **Upload problem** (binary sensor): on while uploads need attention - the latest upload failed or hit the rate limit, no data has reached OpenPlantbook for 3 days, or a plant cannot be registered. Its attributes say why (`reason`: `failed`, `rate_limited`, `overdue` or `plants_failed`) and list the plants that cannot be registered. A plant stays on that list until it registers again. The sensor is unavailable while uploading is off.
+- **Upload status**: how the latest run went - `uploaded`, `nothing_new`, `failed`, `rate_limited`, or `disabled` when uploading is off - with the time of the run, the plants that could not be registered, and the error.
 - **Last upload**: when data last reached OpenPlantbook, from a successful run or from OpenPlantbook's own record.
 
-On Home Assistant 2026.7 or later there are also triggers for automations:
+On Home Assistant 2026.7 or later there are triggers for automations: `openplantbook.upload_problem_started` and `openplantbook.upload_problem_cleared`, which fire when **Upload problem** turns on and off. On older versions, use a state trigger on that sensor.
 
-- `openplantbook.upload_failed`: an upload failed (once per outage, until data gets through again), or plants newly failed to register while the others still upload. `trigger.reason` says which: `failed`, `rate_limited` or `plants_failed`; for `plants_failed`, `trigger.failed_plants` lists only the new ones.
-- `openplantbook.upload_overdue`: no data has reached OpenPlantbook for a while (`for`, default 3 days). If it is already overdue when Home Assistant starts, it waits one more `for` before firing, rather than firing on every restart. Nothing is overdue while the daily upload is off or the integration is not running.
-- `openplantbook.upload_recovered`: data got through again after a failure or a gap longer than `for`, or plants that could not be registered can be again (`trigger.recovered_plants`).
-
-Each trigger passes `trigger.status`, `trigger.last_upload`, `trigger.error`, `trigger.failed_plants` and `trigger.recovered_plants` to your actions.
-
-The **OpenPlantbook upload problem** blueprint uses all three - pick what should happen, such as a notification: [![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FOlen%2Fhome-assistant-openplantbook%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fopenplantbook%2Fupload_problem.yaml)
+The **OpenPlantbook upload problem** blueprint uses both - pick what should happen, such as a notification: [![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FOlen%2Fhome-assistant-openplantbook%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fopenplantbook%2Fupload_problem.yaml)
 
 ### 🌍 Share Location
 

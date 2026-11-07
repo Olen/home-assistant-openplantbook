@@ -1,22 +1,15 @@
 # Trigger descriptions for openplantbook (HA 2026.7+).
 
-.for: &upload_for
-  required: true
-  default:
-    days: 3
-    hours: 0
-    minutes: 0
-    seconds: 0
+.for: &problem_for
+  required: false
   selector:
     duration:
       enable_day: true
 
-upload_failed: {}
-
-upload_overdue:
+upload_problem_started:
   fields:
-    for: *upload_for
+    for: *problem_for
 
-upload_recovered:
+upload_problem_cleared:
   fields:
-    for: *upload_for
+    for: *problem_for

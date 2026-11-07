@@ -61,11 +61,6 @@ from .const import (
 )
 from .entity import OpenPlantbookSearchResult, OpenPlantbookSpecies
 from .plantbook_exception import OpenPlantbookException
-from .upload_health import (
-    claim_upload_health,
-    forget_upload_health,
-    record_unloaded,
-)
 from .uploader import (
     async_setup_upload_schedule,
     plant_data_upload,
@@ -74,7 +69,7 @@ from .uploader import (
 CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 
 def _enrich_plant_data_with_dli(plant_data: dict) -> None:
@@ -496,7 +491,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return download_to
 
     # Setup upload schedule
-    claim_upload_health(hass, entry.entry_id, entry.data[CONF_CLIENT_ID])
     await async_setup_upload_schedule(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Setup optionFlow updates listener
@@ -548,7 +542,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("Unloading %s", DOMAIN)
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
-    record_unloaded(hass)
     _LOGGER.debug("Removing cache")
     await hass.services.async_call(
         domain=DOMAIN,
@@ -572,11 +565,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN] = {DATA_COMPONENT: component} if component else {}
 
     return True
-
-
-async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Forget the upload history of a removed entry."""
-    forget_upload_health(hass)
 
 
 async def config_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

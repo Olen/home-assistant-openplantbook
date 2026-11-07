@@ -2,16 +2,15 @@ blueprint:
   name: OpenPlantbook upload problem
   description: >-
     Run actions when your plant-sensor data stops reaching OpenPlantbook - an
-    upload fails, a plant can no longer be registered, or nothing has arrived
-    for a while - and, if you want, when it gets through again. Only useful with "upload plant-sensors data"
-    turned on in the OpenPlantbook options.
+    upload fails, nothing has arrived for 3 days, or a plant can no longer be
+    registered - and, if you want, when it works again. Only useful with
+    "upload plant-sensors data" turned on in the OpenPlantbook options.
 
 
-    Variables for the actions: `problem` ("failed", "rate_limited",
-    "plants_failed" or "overdue"; the current status when it is fixed),
-    `error`, `failed_plants` (plants that could not be registered, comma
-    separated), `recovered_plants` (plants that can be registered again,
-    when it is fixed) and `last_upload` (when data last arrived, or "never").
+    Variables for the actions: `reason` ("failed", "rate_limited",
+    "overdue" or "plants_failed"; empty when it works again), `error`,
+    `failed_plants` (plants that cannot be registered, comma separated) and
+    `last_upload` (when data last arrived, or "never").
 
 
     Needs Home Assistant 2026.7 or later.
@@ -20,19 +19,11 @@ blueprint:
   homeassistant:
     min_version: 2026.7.0
   input:
-    overdue_for:
-      name: Overdue after
-      description: How long without data reaching OpenPlantbook counts as a problem.
-      default:
-        days: 3
-      selector:
-        duration:
-          enable_day: true
     problem_actions:
       name: When there is a problem
       selector:
         action: {}
-    recovered_actions:
+    cleared_actions:
       name: When uploads work again
       default: []
       selector:
@@ -42,30 +33,22 @@ mode: queued
 max_exceeded: silent
 
 triggers:
-  - trigger: openplantbook.upload_failed
-    id: failed
-  - trigger: openplantbook.upload_overdue
-    options: {for: !input overdue_for}
-    id: overdue
-  - trigger: openplantbook.upload_recovered
-    options: {for: !input overdue_for}
-    id: recovered
+  - trigger: openplantbook.upload_problem_started
+    id: problem
+  - trigger: openplantbook.upload_problem_cleared
+    id: cleared
 
 variables:
-  problem: >-
-    {{ 'overdue' if trigger.id == 'overdue'
-       else trigger.reason if trigger.id == 'failed'
-       else trigger.status }}
-  error: "{{ trigger.error or '' }}"
-  failed_plants: "{{ trigger.failed_plants | join(', ') }}"
-  recovered_plants: "{{ trigger.recovered_plants | join(', ') }}"
+  reason: "{{ trigger.to_state.attributes.reason or '' }}"
+  error: "{{ trigger.to_state.attributes.error or '' }}"
+  failed_plants: "{{ (trigger.to_state.attributes.failed_plants or []) | join(', ') }}"
   last_upload: >-
-    {{ as_local(trigger.last_upload).strftime('%Y-%m-%d %H:%M')
-       if trigger.last_upload else 'never' }}
+    {% set last = trigger.to_state.attributes.last_upload %}
+    {{ as_local(last).strftime('%Y-%m-%d %H:%M') if last else 'never' }}
 
 actions:
   - choose:
-      - conditions: "{{ trigger.id in ['failed', 'overdue'] }}"
+      - conditions: "{{ trigger.id == 'problem' }}"
         sequence: !input problem_actions
-      - conditions: "{{ trigger.id == 'recovered' }}"
-        sequence: !input recovered_actions
+      - conditions: "{{ trigger.id == 'cleared' }}"
+        sequence: !input cleared_actions

@@ -80,30 +80,31 @@
             "last_upload": {
                 "name": "Last upload"
             }
+        },
+        "binary_sensor": {
+            "upload_problem": {
+                "name": "Upload problem"
+            }
         }
     },
     "triggers": {
-        "upload_failed": {
-            "name": "Upload failed",
-            "description": "Triggers when uploading plant-sensor data to OpenPlantbook fails, or when plants can no longer be registered while the others still upload."
-        },
-        "upload_overdue": {
-            "name": "Upload overdue",
-            "description": "Triggers when no plant-sensor data has reached OpenPlantbook for a while.",
+        "upload_problem_started": {
+            "name": "Upload problem started",
+            "description": "Triggers when uploading plant-sensor data to OpenPlantbook needs attention: an upload failed, no data has arrived for 3 days, or plants cannot be registered.",
             "fields": {
                 "for": {
                     "name": "For",
-                    "description": "How long without data reaching OpenPlantbook counts as overdue."
+                    "description": "How long the problem must last, or be gone, before the trigger fires."
                 }
             }
         },
-        "upload_recovered": {
-            "name": "Upload recovered",
-            "description": "Triggers when plant-sensor data reaches OpenPlantbook again after a failure or a long gap, or when plants can be registered again.",
+        "upload_problem_cleared": {
+            "name": "Upload problem cleared",
+            "description": "Triggers when uploading plant-sensor data to OpenPlantbook works again.",
             "fields": {
                 "for": {
                     "name": "For",
-                    "description": "How long without data reaching OpenPlantbook counts as overdue."
+                    "description": "How long the problem must last, or be gone, before the trigger fires."
                 }
             }
         }
