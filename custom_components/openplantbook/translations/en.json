@@ -85,7 +85,7 @@
     "triggers": {
         "upload_failed": {
             "name": "Upload failed",
-            "description": "Triggers when uploading plant-sensor data to OpenPlantbook fails, after a run that did not."
+            "description": "Triggers when uploading plant-sensor data to OpenPlantbook fails, or when plants can no longer be registered while the others still upload."
         },
         "upload_overdue": {
             "name": "Upload overdue",

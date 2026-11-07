@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
-from homeassistant.components.sensor import SensorExtraStoredData
 from homeassistant.core import HomeAssistant, State
 from openplantbook_sdk.sdk import RateLimitError
 
@@ -25,6 +24,7 @@ from custom_components.openplantbook.upload_health import (
 )
 from custom_components.openplantbook.uploader import plant_data_upload
 
+from .conftest import TEST_CLIENT_ID
 from .ha_common import (
     MockConfigEntry,
     mock_restore_cache_with_extra_data,
@@ -111,18 +111,45 @@ class TestOwnership:
     async def test_a_reload_of_the_same_entry_keeps_the_history(
         self, hass: HomeAssistant
     ) -> None:
-        claim_upload_health(hass, "entry-a")
+        claim_upload_health(hass, "entry-a", "account-1")
         record_run(hass, status=STATUS_UPLOADED, finished=MONDAY)
-        claim_upload_health(hass, "entry-a")
+        claim_upload_health(hass, "entry-a", "account-1")
         assert get_upload_health(hass).last_upload == MONDAY
 
     async def test_a_new_entry_starts_fresh(self, hass: HomeAssistant) -> None:
-        claim_upload_health(hass, "entry-a")
+        claim_upload_health(hass, "entry-a", "account-1")
         record_run(hass, status=STATUS_FAILED, finished=MONDAY)
-        claim_upload_health(hass, "entry-b")
+        claim_upload_health(hass, "entry-b", "account-1")
         health = get_upload_health(hass)
         assert health.last_run is None
         assert health.in_outage is False
+
+    async def test_another_account_on_the_same_entry_starts_fresh(
+        self, hass: HomeAssistant
+    ) -> None:
+        claim_upload_health(hass, "entry-a", "account-1")
+        record_run(hass, status=STATUS_UPLOADED, finished=MONDAY)
+        claim_upload_health(hass, "entry-a", "account-2")
+        assert get_upload_health(hass).last_upload is None
+
+    async def test_newly_failed_plants_are_only_the_new_ones(
+        self, hass: HomeAssistant
+    ) -> None:
+        record_run(
+            hass, status=STATUS_UPLOADED, finished=MONDAY, failed_plants=["Fern"]
+        )
+        assert get_upload_health(hass).newly_failed_plants == ["Fern"]
+        record_run(
+            hass, status=STATUS_UPLOADED, finished=TUESDAY, failed_plants=["Fern"]
+        )
+        assert get_upload_health(hass).newly_failed_plants == []
+        record_run(
+            hass,
+            status=STATUS_UPLOADED,
+            finished=TUESDAY,
+            failed_plants=["Fern", "Basil"],
+        )
+        assert get_upload_health(hass).newly_failed_plants == ["Basil"]
 
     async def test_a_manual_run_keeps_the_schedule_disabled(
         self, hass: HomeAssistant
@@ -275,11 +302,11 @@ class TestUploadSensors:
                             "error": "token expired",
                         },
                     ),
-                    {"in_outage": True},
+                    {"in_outage": True, "account": TEST_CLIENT_ID},
                 ),
                 (
                     State(LAST_UPLOAD_SENSOR, MONDAY.isoformat()),
-                    SensorExtraStoredData(MONDAY, None).as_dict(),
+                    {"last_upload": MONDAY.isoformat(), "account": TEST_CLIENT_ID},
                 ),
             ],
         )
@@ -301,3 +328,61 @@ class TestUploadSensors:
 
         await hass.config_entries.async_unload(mock_config_entry.entry_id)
         await hass.async_block_till_done()
+
+
+async def test_saved_state_of_another_account_is_not_restored(
+    hass: HomeAssistant,
+    mock_config_entry: MockConfigEntry,
+    mock_openplantbook_api: MagicMock,
+) -> None:
+    mock_restore_cache_with_extra_data(
+        hass,
+        [
+            (
+                State(STATUS_SENSOR, STATUS_FAILED, {"error": "old account"}),
+                {"in_outage": True, "account": "someone-else"},
+            ),
+            (
+                State(LAST_UPLOAD_SENSOR, MONDAY.isoformat()),
+                {"last_upload": MONDAY.isoformat(), "account": "someone-else"},
+            ),
+        ],
+    )
+    mock_config_entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(
+        mock_config_entry, options={FLOW_UPLOAD_DATA: True}
+    )
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    health = get_upload_health(hass)
+    assert health.last_upload is None
+    assert health.in_outage is False
+    assert health.error is None
+
+    await hass.config_entries.async_unload(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_unloading_keeps_history_but_stops_monitoring(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    record_run(hass, status=STATUS_UPLOADED, finished=MONDAY)
+    await hass.config_entries.async_unload(init_integration.entry_id)
+    await hass.async_block_till_done()
+
+    health = get_upload_health(hass)
+    assert health.upload_enabled is None
+    assert health.last_upload == MONDAY
+
+
+async def test_removing_the_entry_forgets_the_history(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    record_run(hass, status=STATUS_UPLOADED, finished=MONDAY)
+    await hass.config_entries.async_remove(init_integration.entry_id)
+    await hass.async_block_till_done()
+
+    health = get_upload_health(hass)
+    assert health.last_upload is None
+    assert health.upload_enabled is None

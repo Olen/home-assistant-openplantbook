@@ -2,15 +2,15 @@ blueprint:
   name: OpenPlantbook upload problem
   description: >-
     Run actions when your plant-sensor data stops reaching OpenPlantbook - an
-    upload fails, or nothing has arrived for a while - and, if you want, when
-    it gets through again. Only useful with "upload plant-sensors data"
+    upload fails, a plant can no longer be registered, or nothing has arrived
+    for a while - and, if you want, when it gets through again. Only useful with "upload plant-sensors data"
     turned on in the OpenPlantbook options.
 
 
-    Variables for the actions: `problem` ("failed", "rate_limited" or
-    "overdue"; the current status when it is fixed), `error`,
-    `failed_plants` (plants that could not be registered, comma separated)
-    and `last_upload` (when data last arrived, or "never").
+    Variables for the actions: `problem` ("failed", "rate_limited",
+    "plants_failed" or "overdue"; the current status when it is fixed),
+    `error`, `failed_plants` (plants that could not be registered, comma
+    separated) and `last_upload` (when data last arrived, or "never").
 
 
     Needs Home Assistant 2026.7 or later.
@@ -51,7 +51,10 @@ triggers:
     id: recovered
 
 variables:
-  problem: "{{ 'overdue' if trigger.id == 'overdue' else trigger.status }}"
+  problem: >-
+    {{ 'overdue' if trigger.id == 'overdue'
+       else trigger.reason if trigger.id == 'failed'
+       else trigger.status }}
   error: "{{ trigger.error or '' }}"
   failed_plants: "{{ trigger.failed_plants | join(', ') }}"
   last_upload: >-

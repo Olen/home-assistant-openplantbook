@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
-from homeassistant.components.sensor import (
-    RestoreSensor,
-    SensorDeviceClass,
-    SensorEntity,
-)
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
+from homeassistant.const import CONF_CLIENT_ID, EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -31,6 +26,10 @@ from .upload_health import (
     record_restored,
 )
 
+# Saved with the restore data, so a state saved for one account is never
+# restored for another that reuses the entity ids.
+ATTR_ACCOUNT = "account"
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
@@ -39,7 +38,7 @@ async def async_setup_entry(
     async_add_entities([UploadStatusSensor(entry), LastUploadSensor(entry)])
 
 
-class _UploadSensor(SensorEntity):
+class _UploadSensor(SensorEntity, RestoreEntity):
     """Common setup: one OpenPlantbook service device, diagnostic, push-updated."""
 
     _attr_has_entity_name = True
@@ -47,6 +46,7 @@ class _UploadSensor(SensorEntity):
     _attr_should_poll = False
 
     def __init__(self, entry: ConfigEntry, key: str) -> None:
+        self._account: str = entry.data[CONF_CLIENT_ID]
         self._attr_translation_key = key
         self._attr_unique_id = f"{entry.unique_id or entry.entry_id}_{key}"
         self._attr_device_info = DeviceInfo(
@@ -60,7 +60,9 @@ class _UploadSensor(SensorEntity):
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         # Restore before listening, so our own restore signal is not handled here.
-        await self._async_restore()
+        saved = await self._async_saved_data()
+        if saved is not None:
+            await self._async_restore(saved)
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass, SIGNAL_UPLOAD_HEALTH, self._on_upload_health
@@ -68,7 +70,26 @@ class _UploadSensor(SensorEntity):
         )
         self._update_from_health()
 
-    async def _async_restore(self) -> None:
+    async def _async_saved_data(self) -> dict[str, Any] | None:
+        """The data saved before the restart, if it belongs to this account."""
+        extra = await self.async_get_last_extra_data()
+        if extra is None:
+            return None
+        saved = extra.as_dict()
+        if saved.get(ATTR_ACCOUNT) != self._account:
+            return None
+        return saved
+
+    @property
+    def extra_restore_state_data(self) -> ExtraStoredData:
+        data = self._data_to_save()
+        data[ATTR_ACCOUNT] = self._account
+        return RestoredExtraData(data)
+
+    async def _async_restore(self, saved: dict[str, Any]) -> None:
+        raise NotImplementedError
+
+    def _data_to_save(self) -> dict[str, Any]:
         raise NotImplementedError
 
     @callback
@@ -81,7 +102,7 @@ class _UploadSensor(SensorEntity):
         raise NotImplementedError
 
 
-class UploadStatusSensor(_UploadSensor, RestoreEntity):
+class UploadStatusSensor(_UploadSensor):
     """How the latest upload run went."""
 
     _attr_device_class = SensorDeviceClass.ENUM
@@ -91,12 +112,11 @@ class UploadStatusSensor(_UploadSensor, RestoreEntity):
         super().__init__(entry, "upload_status")
         self._attr_extra_state_attributes: dict[str, Any] = {}
 
-    async def _async_restore(self) -> None:
+    async def _async_restore(self, saved: dict[str, Any]) -> None:
         last = await self.async_get_last_state()
         if last is None or last.state not in UPLOAD_STATUSES:
             return
         last_run = last.attributes.get("last_run")
-        extra = await self.async_get_last_extra_data()
         record_restored(
             self.hass,
             status=last.state,
@@ -104,13 +124,12 @@ class UploadStatusSensor(_UploadSensor, RestoreEntity):
             last_run=dt_util.parse_datetime(last_run) if last_run else None,
             failed_plants=last.attributes.get("failed_plants"),
             error=last.attributes.get("error"),
-            in_outage=extra.as_dict().get("in_outage") if extra else None,
+            in_outage=saved.get("in_outage"),
         )
 
-    @property
-    def extra_restore_state_data(self) -> ExtraStoredData:
-        """Save the outage flag, which the status alone does not show."""
-        return RestoredExtraData({"in_outage": get_upload_health(self.hass).in_outage})
+    def _data_to_save(self) -> dict[str, Any]:
+        # The outage flag is not visible in the status alone.
+        return {"in_outage": get_upload_health(self.hass).in_outage}
 
     @callback
     def _update_from_health(self) -> None:
@@ -123,7 +142,7 @@ class UploadStatusSensor(_UploadSensor, RestoreEntity):
         }
 
 
-class LastUploadSensor(_UploadSensor, RestoreSensor):
+class LastUploadSensor(_UploadSensor):
     """When OpenPlantbook last received data: from this run or the cloud's record."""
 
     _attr_device_class = SensorDeviceClass.TIMESTAMP
@@ -131,10 +150,14 @@ class LastUploadSensor(_UploadSensor, RestoreSensor):
     def __init__(self, entry: ConfigEntry) -> None:
         super().__init__(entry, "last_upload")
 
-    async def _async_restore(self) -> None:
-        last = await self.async_get_last_sensor_data()
-        if last is not None and isinstance(last.native_value, datetime):
-            record_restored(self.hass, last_upload=last.native_value)
+    async def _async_restore(self, saved: dict[str, Any]) -> None:
+        last_upload = saved.get("last_upload")
+        if last_upload:
+            record_restored(self.hass, last_upload=dt_util.parse_datetime(last_upload))
+
+    def _data_to_save(self) -> dict[str, Any]:
+        last_upload = get_upload_health(self.hass).last_upload
+        return {"last_upload": last_upload.isoformat() if last_upload else None}
 
     @callback
     def _update_from_health(self) -> None:

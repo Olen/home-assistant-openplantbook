@@ -44,8 +44,11 @@ class UploadHealth:
     """The latest upload outcome, and the one before it."""
 
     entry_id: str | None = None
-    # Whether the daily upload is scheduled; a manual run does not change it.
+    account: str | None = None
+    # Whether the daily upload is scheduled: True or False while the entry is
+    # loaded, None while it is not. A manual run does not change it.
     upload_enabled: bool | None = None
+    previous_upload_enabled: bool | None = None
     status: str | None = None
     last_upload: datetime | None = None
     last_run: datetime | None = None
@@ -58,6 +61,8 @@ class UploadHealth:
     in_outage: bool = False
     outage_started: bool = False
     outage_ended: bool = False
+    # Plants that could not be registered in this run but could in the one before.
+    newly_failed_plants: list[str] = field(default_factory=list)
 
 
 def get_upload_health(hass: HomeAssistant) -> UploadHealth:
@@ -66,37 +71,55 @@ def get_upload_health(hass: HomeAssistant) -> UploadHealth:
 
 
 @callback
-def claim_upload_health(hass: HomeAssistant, entry_id: str) -> None:
-    """Start a fresh record when a different config entry takes over.
+def claim_upload_health(hass: HomeAssistant, entry_id: str, account: str) -> None:
+    """Start a fresh record when another entry or account takes over.
 
-    A reload of the same entry keeps its history; a new entry, possibly for
-    another account, must not inherit it.
+    A reload of the same entry for the same account keeps its history; a new
+    entry, or a reconfigured one with another client ID, must not inherit it.
     """
     health = get_upload_health(hass)
-    if health.entry_id == entry_id:
+    if health.entry_id == entry_id and health.account == account:
         return
-    hass.data[DATA_UPLOAD_HEALTH] = UploadHealth(entry_id=entry_id)
+    hass.data[DATA_UPLOAD_HEALTH] = UploadHealth(entry_id=entry_id, account=account)
 
 
 @callback
 def forget_upload_health(hass: HomeAssistant) -> None:
-    """Drop the record when the config entry is removed."""
-    hass.data.pop(DATA_UPLOAD_HEALTH, None)
+    """Start over with an empty record when the entry is removed.
+
+    Triggers in automations outlive the entry, so they are told, and cancel
+    their timers.
+    """
+    hass.data[DATA_UPLOAD_HEALTH] = UploadHealth()
+    async_dispatcher_send(hass, SIGNAL_UPLOAD_HEALTH, UPDATE_ENABLED)
+
+
+@callback
+def _set_enabled(hass: HomeAssistant, enabled: bool | None) -> None:
+    health = get_upload_health(hass)
+    if health.upload_enabled == enabled:
+        return
+    health.previous_upload_enabled = health.upload_enabled
+    health.upload_enabled = enabled
+    async_dispatcher_send(hass, SIGNAL_UPLOAD_HEALTH, UPDATE_ENABLED)
 
 
 @callback
 def record_enabled(hass: HomeAssistant, enabled: bool) -> None:
     """Note whether the daily upload is scheduled."""
     health = get_upload_health(hass)
-    was_enabled = health.upload_enabled
-    health.upload_enabled = enabled
     if not enabled:
         health.status = STATUS_DISABLED
     elif health.status == STATUS_DISABLED:
         # Unknown until the first scheduled run.
         health.status = None
-    if was_enabled != enabled:
-        async_dispatcher_send(hass, SIGNAL_UPLOAD_HEALTH, UPDATE_ENABLED)
+    _set_enabled(hass, enabled)
+
+
+@callback
+def record_unloaded(hass: HomeAssistant) -> None:
+    """The entry is not running: no uploads are due, but the history is kept."""
+    _set_enabled(hass, None)
 
 
 def classify_run(
@@ -135,6 +158,9 @@ def record_run(
     health = get_upload_health(hass)
     health.previous_status = health.status
     health.previous_last_upload = health.last_upload
+    health.newly_failed_plants = [
+        plant for plant in failed_plants or [] if plant not in health.failed_plants
+    ]
     uploaded_now = finished if status == STATUS_UPLOADED else None
     health.status = status
     health.last_upload = newest(health.last_upload, cloud_latest, uploaded_now)

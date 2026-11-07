@@ -26,6 +26,7 @@ from .upload_health import (
 )
 
 DEFAULT_OVERDUE_FOR = timedelta(days=3)
+REASON_PLANTS_FAILED = "plants_failed"
 
 _NO_OPTIONS_SCHEMA = vol.Schema(
     {vol.Optional(CONF_OPTIONS, default=dict): vol.Schema({})}
@@ -54,7 +55,12 @@ def _payload(health: UploadHealth) -> dict[str, Any]:
 
 
 class UploadFailedTrigger(Trigger):
-    """An upload run failed, outside an outage that is already going on."""
+    """An upload failed, or a plant could no longer be registered.
+
+    A whole run failing fires once per outage, with every plant that failed.
+    Otherwise it fires when plants newly fail to register while the others
+    still upload, with only those plants.
+    """
 
     @classmethod
     async def async_validate_config(
@@ -74,7 +80,14 @@ class UploadFailedTrigger(Trigger):
                 return
             health = get_upload_health(self._hass)
             if health.outage_started:
-                run_action(_payload(health), f"upload {health.status}")
+                payload = _payload(health)
+                payload["reason"] = health.status
+                run_action(payload, f"upload {health.status}")
+            elif health.newly_failed_plants:
+                payload = _payload(health)
+                payload["reason"] = REASON_PLANTS_FAILED
+                payload["failed_plants"] = list(health.newly_failed_plants)
+                run_action(payload, "plants could not be registered")
 
         return async_dispatcher_connect(self._hass, SIGNAL_UPLOAD_HEALTH, _on_update)
 
@@ -84,8 +97,9 @@ class UploadOverdueTrigger(Trigger):
 
     Already overdue when the trigger is attached (a restart during an outage),
     it waits one more `for` before firing, rather than firing on every restart.
-    Nothing is overdue while the daily upload is turned off - a manual upload
-    does not change that - and turning it back on starts a fresh window.
+    Nothing is overdue while the daily upload is turned off or the integration
+    is not running - a manual upload does not change that. Turning the daily
+    upload back on starts a fresh window; a reload does not.
     """
 
     @classmethod
@@ -118,7 +132,7 @@ class UploadOverdueTrigger(Trigger):
             nonlocal overdue, timer
             timer = None
             health = get_upload_health(self._hass)
-            if health.upload_enabled is False:
+            if health.upload_enabled is not True:
                 overdue = False
                 return
             deadline = _deadline(health)
@@ -144,7 +158,11 @@ class UploadOverdueTrigger(Trigger):
             health = get_upload_health(self._hass)
             if update == UPDATE_RESTORED:
                 _hold_off_if_overdue()
-            elif update == UPDATE_ENABLED and health.upload_enabled:
+            elif (
+                update == UPDATE_ENABLED
+                and health.upload_enabled is True
+                and health.previous_upload_enabled is False
+            ):
                 not_before = dt_util.utcnow() + self._duration
             if timer is not None:
                 timer()
@@ -193,7 +211,8 @@ class UploadRecoveredTrigger(Trigger):
             # Never seen an upload before: count from when we started watching,
             # as the overdue trigger does.
             previous = health.previous_last_upload or attached
-            was_overdue = health.last_run - previous > self._duration
+            # Inclusive, as the overdue trigger fires at exactly `for`.
+            was_overdue = health.last_run - previous >= self._duration
             if health.outage_ended or was_overdue:
                 run_action(_payload(health), "upload recovered")
 

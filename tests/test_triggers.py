@@ -23,9 +23,11 @@ from custom_components.openplantbook.upload_health import (
     STATUS_NOTHING_NEW,
     STATUS_RATE_LIMITED,
     STATUS_UPLOADED,
+    forget_upload_health,
     record_enabled,
     record_restored,
     record_run,
+    record_unloaded,
 )
 
 from .ha_common import async_capture_events, async_fire_time_changed
@@ -104,6 +106,7 @@ async def test_upload_failed_fires_once_per_outage(hass: HomeAssistant) -> None:
 async def test_upload_overdue_fires_after_the_window(
     hass: HomeAssistant, freezer
 ) -> None:
+    record_enabled(hass, True)
     await _run(hass, STATUS_UPLOADED)
     events = await _automation(
         hass,
@@ -128,6 +131,7 @@ async def test_upload_overdue_fires_after_the_window(
 async def test_a_new_upload_rearms_the_overdue_window(
     hass: HomeAssistant, freezer
 ) -> None:
+    record_enabled(hass, True)
     await _run(hass, STATUS_UPLOADED)
     events = await _automation(
         hass,
@@ -149,6 +153,7 @@ async def test_overdue_at_start_waits_one_more_window(
     hass: HomeAssistant, freezer
 ) -> None:
     """A restart during an outage does not fire at once, but does not forget it."""
+    record_enabled(hass, True)
     events = await _automation(
         hass,
         {"trigger": "openplantbook.upload_overdue", "options": {"for": {"days": 3}}},
@@ -359,5 +364,92 @@ async def test_first_upload_ever_recovers_a_long_wait(
         "recovered",
     )
     freezer.tick(timedelta(days=4))
+    await _run(hass, STATUS_UPLOADED)
+    assert len(events) == 1
+
+
+async def test_newly_failing_plants_fire_failed_while_others_upload(
+    hass: HomeAssistant,
+) -> None:
+    events = async_capture_events(hass, "plants")
+    assert await async_setup_component(hass, "trace", {})
+    assert await async_setup_component(
+        hass,
+        "automation",
+        {
+            "automation": {
+                "trigger": {"trigger": "openplantbook.upload_failed"},
+                "action": {
+                    "event": "plants",
+                    "event_data": {
+                        "reason": "{{ trigger.reason }}",
+                        "plants": "{{ trigger.failed_plants | join(',') }}",
+                    },
+                },
+            }
+        },
+    )
+    await hass.async_block_till_done()
+
+    await _run(hass, STATUS_UPLOADED, failed_plants=["Fern"])
+    await _run(hass, STATUS_UPLOADED, failed_plants=["Fern"])
+    await _run(hass, STATUS_UPLOADED, failed_plants=["Fern", "Basil"])
+    assert [e.data for e in events] == [
+        {"reason": "plants_failed", "plants": "Fern"},
+        {"reason": "plants_failed", "plants": "Basil"},
+    ]
+
+
+async def test_a_reload_does_not_restart_the_overdue_window(
+    hass: HomeAssistant, freezer
+) -> None:
+    record_enabled(hass, True)
+    await _run(hass, STATUS_UPLOADED)
+    events = await _automation(
+        hass,
+        {"trigger": "openplantbook.upload_overdue", "options": {"for": {"days": 3}}},
+        "overdue",
+    )
+    freezer.tick(timedelta(days=2))
+    record_unloaded(hass)
+    record_enabled(hass, True)
+    await hass.async_block_till_done()
+
+    freezer.tick(timedelta(days=1, minutes=1))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert len(events) == 1
+
+
+async def test_nothing_is_overdue_after_the_entry_is_gone(
+    hass: HomeAssistant, freezer
+) -> None:
+    record_enabled(hass, True)
+    await _run(hass, STATUS_UPLOADED)
+    events = await _automation(
+        hass,
+        {"trigger": "openplantbook.upload_overdue", "options": {"for": {"days": 3}}},
+        "overdue",
+    )
+    forget_upload_health(hass)
+    await hass.async_block_till_done()
+
+    freezer.tick(timedelta(days=10))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert len(events) == 0
+
+
+async def test_recovery_at_exactly_the_window(hass: HomeAssistant, freezer) -> None:
+    events = await _automation(
+        hass,
+        {
+            "trigger": "openplantbook.upload_recovered",
+            "options": {"for": {"days": 3}},
+        },
+        "recovered",
+    )
+    await _run(hass, STATUS_UPLOADED)
+    freezer.tick(timedelta(days=3))
     await _run(hass, STATUS_UPLOADED)
     assert len(events) == 1
