@@ -1,0 +1,54 @@
+blueprint:
+  name: OpenPlantbook upload problem
+  description: >-
+    Run actions when your plant-sensor data stops reaching OpenPlantbook - an
+    upload fails, nothing has arrived for 3 days, or a plant can no longer be
+    registered - and, if you want, when it works again. Only useful with
+    "upload plant-sensors data" turned on in the OpenPlantbook options.
+
+
+    Variables for the actions: `reason` ("failed", "rate_limited",
+    "overdue" or "plants_failed"; empty when it works again), `error`,
+    `failed_plants` (plants that cannot be registered, comma separated) and
+    `last_upload` (when data last arrived, or "never").
+
+
+    Needs Home Assistant 2026.7 or later.
+  domain: automation
+  source_url: https://github.com/Olen/home-assistant-openplantbook/blob/main/blueprints/automation/openplantbook/upload_problem.yaml
+  homeassistant:
+    min_version: 2026.7.0
+  input:
+    problem_actions:
+      name: When there is a problem
+      selector:
+        action: {}
+    cleared_actions:
+      name: When uploads work again
+      default: []
+      selector:
+        action: {}
+
+mode: queued
+max_exceeded: silent
+
+triggers:
+  - trigger: openplantbook.upload_problem_started
+    id: problem
+  - trigger: openplantbook.upload_problem_cleared
+    id: cleared
+
+variables:
+  reason: "{{ trigger.to_state.attributes.reason or '' }}"
+  error: "{{ trigger.to_state.attributes.error or '' }}"
+  failed_plants: "{{ (trigger.to_state.attributes.failed_plants or []) | join(', ') }}"
+  last_upload: >-
+    {% set last = trigger.to_state.attributes.last_upload %}
+    {{ as_local(last).strftime('%Y-%m-%d %H:%M') if last else 'never' }}
+
+actions:
+  - choose:
+      - conditions: "{{ trigger.id == 'problem' }}"
+        sequence: !input problem_actions
+      - conditions: "{{ trigger.id == 'cleared' }}"
+        sequence: !input cleared_actions

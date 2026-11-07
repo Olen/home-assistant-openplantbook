@@ -75,6 +75,34 @@ When enabled, the integration periodically (once a day) uploads sensor data from
 - Can also be triggered manually via the `openplantbook.upload` action
 - Daily uploads are scheduled at a randomized time-of-day per installation (stable for a given config entry) to even load distribution
 
+#### Upload health
+
+Three diagnostic entities on the **OpenPlantbook** device show how uploads are going:
+
+- **Upload problem** (binary sensor): on while uploads need attention - the latest upload failed or hit the rate limit, no data has reached OpenPlantbook for 3 days, or a plant cannot be registered. Its attributes say why (`reason`: `failed`, `rate_limited`, `overdue` or `plants_failed`) and list the plants that cannot be registered. A plant stays on that list until it registers again. The sensor is unavailable while uploading is off.
+- **Upload status**: how the latest run went - `uploaded`, `nothing_new`, `failed`, `rate_limited`, or `disabled` when uploading is off - with the time of the run, the plants that could not be registered, and the error.
+- **Last upload**: when data last reached OpenPlantbook, from a successful run or from OpenPlantbook's own record.
+
+On Home Assistant 2026.7 or later there are triggers for automations: `openplantbook.upload_problem_started` and `openplantbook.upload_problem_cleared`, which fire when **Upload problem** turns on and off. On older versions, use a state trigger on that sensor.
+
+The triggers fire when the sensor changes from off to on (or back). A problem that begins while Home Assistant is down, or that is already there when you turn uploading back on, shows on the sensor but does not fire them. To be told about it after a restart, check the sensor when Home Assistant starts:
+
+```yaml
+triggers:
+  - trigger: homeassistant
+    event: start
+conditions:
+  - condition: state
+    entity_id: binary_sensor.openplantbook_upload_problem
+    state: "on"
+actions:
+  - action: notify.mobile_app_phone
+    data:
+      message: "OpenPlantbook uploads need attention"
+```
+
+The **OpenPlantbook upload problem** blueprint uses both - pick what should happen, such as a notification: [![Import blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2FOlen%2Fhome-assistant-openplantbook%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fopenplantbook%2Fupload_problem.yaml)
+
 ### 🌍 Share Location
 
 Optionally share your Home Assistant location to complement sensor data. Two levels:

@@ -1,5 +1,6 @@
 import logging
 import random
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -11,6 +12,7 @@ from homeassistant.components.recorder.history import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    CONF_CLIENT_ID,
     LIGHT_LUX,
     PERCENTAGE,
     UnitOfConductivity,
@@ -36,6 +38,15 @@ from .const import (
     OPB_MEASUREMENTS_TO_UPLOAD,
 )
 from .plantbook_exception import OpenPlantbookException
+from .upload_health import (
+    STATUS_FAILED,
+    STATUS_RATE_LIMITED,
+    UploadRun,
+    announce_run,
+    announce_schedule,
+    classify_run,
+    newest,
+)
 
 PLANT_DOMAIN = "plant"
 UPLOAD_TIME_INTERVAL = timedelta(days=1)
@@ -144,8 +155,67 @@ def _plant_devices(hass: HomeAssistant) -> list[device_registry.DeviceEntry]:
     ]
 
 
+@dataclass
+class _RunTally:
+    """What one upload run did, for classifying its outcome."""
+
+    account: str
+    plants_total: int = 0
+    # Plant device id -> name
+    failed_plants: dict[str, str] = field(default_factory=dict)
+    registered_plants: set[str] = field(default_factory=set)
+    errors: list[str] = field(default_factory=list)
+    cloud_latest: datetime | None = None
+    sent: bool = False
+    accepted: bool = False
+
+    def run(self, status: str, extra_error: str | None = None) -> UploadRun:
+        """The run as the upload entities see it."""
+        errors = [*self.errors, extra_error] if extra_error else self.errors
+        return UploadRun(
+            account=self.account,
+            status=status,
+            finished=dt_util.utcnow(),
+            cloud_latest=self.cloud_latest,
+            failed_plants=dict(self.failed_plants),
+            registered_plants=set(self.registered_plants),
+            error=_joined(errors),
+        )
+
+
 async def plant_data_upload(
     hass: HomeAssistant, entry: ConfigEntry, call=None
+) -> dict[str, Any] | None:
+    """Upload new plant-sensor data, and tell the upload entities how it went."""
+    tally = _RunTally(account=entry.data[CONF_CLIENT_ID])
+    try:
+        result = await _plant_data_upload(hass, entry, call, tally)
+    except RateLimitError:
+        announce_run(
+            hass,
+            tally.run(STATUS_RATE_LIMITED, "OpenPlantbook API rate limit exceeded"),
+        )
+        raise
+    except Exception as err:
+        announce_run(hass, tally.run(STATUS_FAILED, str(err)))
+        raise
+    status = classify_run(
+        plants_total=tally.plants_total,
+        plants_failed=len(tally.failed_plants),
+        sent=tally.sent,
+        accepted=tally.accepted,
+    )
+    announce_run(hass, tally.run(status))
+    return result
+
+
+def _joined(errors: list[str]) -> str | None:
+    """The distinct errors of a run, in the order they happened."""
+    return "; ".join(dict.fromkeys(errors)) or None
+
+
+async def _plant_data_upload(
+    hass: HomeAssistant, entry: ConfigEntry, call, tally: _RunTally
 ) -> dict[str, Any] | None:
     if DOMAIN not in hass.data:
         raise OpenPlantbookException("no data found for domain %s", DOMAIN)
@@ -215,6 +285,7 @@ async def plant_data_upload(
         plant_instance_id = i.id
 
         # Registering Plant-instance
+        tally.plants_total += 1
         reg_map = {plant_instance_id: opb_pid}
         _LOGGER.debug("Registering Plant-instance: %s", reg_map)
 
@@ -285,6 +356,8 @@ async def plant_data_upload(
                 reg_map,
                 caught_exception,
             )
+            tally.failed_plants[i.id] = i.name
+            tally.errors.append(str(caught_exception))
             continue
 
         if res is None:
@@ -292,6 +365,8 @@ async def plant_data_upload(
                 "Unable to register Plant-instance %s: API returned no response (check credentials/token)",
                 reg_map,
             )
+            tally.failed_plants[i.id] = i.name
+            tally.errors.append("OpenPlantbook returned no response")
             continue
 
         _LOGGER.debug("Registration is successful with response: %s", res)
@@ -301,11 +376,19 @@ async def plant_data_upload(
             custom_id = res[0]["id"]
         except (IndexError, KeyError, TypeError):
             _LOGGER.exception("Cannot parse API response: %s", res)
+            tally.failed_plants[i.id] = i.name
+            tally.errors.append("Unexpected response from OpenPlantbook")
             continue
+        tally.registered_plants.add(i.id)
 
         # Get the latest_data timestamp from OPB response
         latest_data = res[0].get("latest_data")
         _LOGGER.debug("Latest_data timestamp from OPB (in UTC): %s", latest_data)
+        if latest_data:
+            tally.cloud_latest = newest(
+                tally.cloud_latest,
+                dt_util.parse_datetime(latest_data).astimezone(dt.UTC),
+            )
 
         query_period_end_timestamp = dt_util.now(dt.UTC)
 
@@ -418,9 +501,11 @@ async def plant_data_upload(
     if len(jts_doc) > 0:
         _LOGGER.debug("Payload to upload: %s", jts_doc.toJSONString())
         _LOGGER.debug("Calling OPB SDK to upload data")
+        tally.sent = True
         res = await hass.data[DOMAIN][ATTR_API].async_plant_data_upload(
             jts_doc, dry_run=False
         )
+        tally.accepted = bool(res)
         _LOGGER.info(
             "Uploading data from %s sensors was %s",
             len(jts_doc),
@@ -521,6 +606,8 @@ async def async_setup_upload_schedule(hass: HomeAssistant, entry: ConfigEntry) -
         if hass.data[DOMAIN].get("remove_upload_listener"):
             hass.data[DOMAIN]["remove_upload_listener"]()
             hass.data[DOMAIN]["remove_upload_listener"] = None
+
+    announce_schedule(hass)
 
 
 # class Plant_data_uploader:

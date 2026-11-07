@@ -1,0 +1,15 @@
+# Trigger descriptions for openplantbook (HA 2026.7+).
+
+.for: &problem_for
+  required: false
+  selector:
+    duration:
+      enable_day: true
+
+upload_problem_started:
+  fields:
+    for: *problem_for
+
+upload_problem_cleared:
+  fields:
+    for: *problem_for

@@ -64,5 +64,49 @@
     "error": {
       "invalid_path": "Invalid download path"
     }
+  },
+  "entity": {
+    "sensor": {
+      "upload_status": {
+        "name": "Upload status",
+        "state": {
+          "uploaded": "Uploaded",
+          "nothing_new": "Nothing new",
+          "failed": "Failed",
+          "rate_limited": "Rate limited",
+          "disabled": "Disabled"
+        }
+      },
+      "last_upload": {
+        "name": "Last upload"
+      }
+    },
+    "binary_sensor": {
+      "upload_problem": {
+        "name": "Upload problem"
+      }
+    }
+  },
+  "triggers": {
+    "upload_problem_started": {
+      "name": "Upload problem started",
+      "description": "Triggers when uploading plant-sensor data to OpenPlantbook needs attention: an upload failed, no data has arrived for 3 days, or plants cannot be registered.",
+      "fields": {
+        "for": {
+          "name": "For",
+          "description": "How long the problem must last, or be gone, before the trigger fires."
+        }
+      }
+    },
+    "upload_problem_cleared": {
+      "name": "Upload problem cleared",
+      "description": "Triggers when uploading plant-sensor data to OpenPlantbook works again.",
+      "fields": {
+        "for": {
+          "name": "For",
+          "description": "How long the problem must last, or be gone, before the trigger fires."
+        }
+      }
+    }
   }
 }
